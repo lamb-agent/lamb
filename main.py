@@ -5,18 +5,17 @@ import logging
 from enum import Enum
 import sys
 from sys import exit
-from agentdojo.functions_runtime import FunctionsRuntime, make_function
+from agentdojo.functions_runtime import FunctionsRuntime
 from openai import OpenAI
 from agentdojo.agent_pipeline import (
-    PromptingLLM,
-    ToolsExecutionLoop,
-    ToolsExecutor,
     AgentPipeline,
     SystemMessage,
     InitQuery,
 )
 from agentdojo.logging import OutputLogger
 import openai
+from lamb.prompting_llm import PromptingLLM
+from lamb.tool_execution import ToolsExecutionLoop, ToolsExecutor
 
 
 class OllamaModel(Enum):
