@@ -66,7 +66,7 @@ class Gemma(pipeline.BasePipelineElement):
     def __init__(self, api_key: str):
         client = openai.OpenAI(
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            api_key=api_key,  # required, but unused
+            api_key=api_key,
         )
         self.llm = PromptingLLM(client=client, model="gemma-3-27b-it")
 

@@ -1,6 +1,4 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/llms/prompting_llm.py
-import sys
-import abc
 import json
 import re
 from collections.abc import Sequence
@@ -73,127 +71,13 @@ def _message_to_together(message: ChatMessage, model_name: str) -> ChatCompletio
             raise ValueError(f"Invalid message type: {message}")
 
 
-class BasePromptingLLM(OpenAILLM):
-    """OpenAI client-based LLM that can be prompted with a different system prompt. We use this in
-    our paper to run Llama 3 70B via TogetherAI's API."""
 
-    _tool_calling_prompt: str
-    """The system prompt that instructs the LLM on how to use the tools. It should also provide an implementation.
-    Must be defined by subclasses"""
-    _MAX_ATTEMPTS = 3
-    """Maximum number of attempts at parsing the model output."""
-
-    @abc.abstractmethod
-    def _make_tools_prompt(
-        self, system_message: ChatSystemMessage | None, tools: Sequence[Function]
-    ) -> ChatUserMessage | None:
-        """Builds the system prompt by putting the original system message, the tools documentation and
-        the instruction prompt together.
-
-        See [`PromptingLLM`][agentdojo.agent_pipeline.PromptingLLM._make_tools_prompt]'s implementation
-        for an example. Must be implemented by subclass.
-
-        Args:
-            system_message: The original system message.
-            tools: The tools that the LLM can use.
-
-        Returns:
-            The system message with the tools documentation and the instruction prompt.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def _parse_model_output(self, message: ChatCompletionMessage) -> ChatAssistantMessage:
-        """Parses the model output by identifying text content and tool-calling content.
-
-        See [`PromptingLLM`][agentdojo.agent_pipeline.PromptingLLM._parse_model_output]'s
-        implementation for an example. Must be implemented by subclass.
-
-        Args:
-            message: The model output to be parsed.
-
-        Returns:
-            The assistant message with the text content and the tool-calling content.
-        """
-        raise NotImplementedError()
-
-    def _get_system_message(
-        self, messages: Sequence[ChatMessage]
-    ) -> tuple[ChatSystemMessage | None, Sequence[ChatMessage]]:
-        if len(messages) == 0:
-            return None, []
-        if messages[0]["role"] == "system":
-            return messages[0], messages[1:]
-        return None, messages
-
-    @abc.abstractmethod
-    def _tool_message_to_user_message(self, tool_message: ChatToolResultMessage) -> ChatUserMessage:
-        """Parses the model output by identifying text content and tool-calling content.
-
-        See [`PromptingLLM`][agentdojo.agent_pipeline.PromptingLLM._tool_message_to_user_message]'s
-        implementation for an example. Must be implemented by subclass.
-
-        Args:
-            tool_message: The tool message whose output should be converted to a user message.
-
-        Returns:
-            The user message containing the tool result.
-        """
-        ...
-
-    def query(
-        self,
-        query: str,
-        runtime: FunctionsRuntime,
-        env: Env = EmptyEnv(),
-        messages: Sequence[ChatMessage] = [],
-        extra_args: dict = {},
-    ) -> tuple[str, FunctionsRuntime, Env, Sequence[ChatMessage], dict]:
-        adapted_messages = [
-            self._tool_message_to_user_message(message) if message["role"] == "tool" else message
-            for message in messages
-        ]
-        # TODO: this is specific to Together's API. Look into improving it.
-        openai_messages = [_message_to_together(message, self.model) for message in adapted_messages if message["role"] != "system"]
-        system_message, other_messages = self._get_system_message(messages)
-        system_message = self._make_tools_prompt(system_message, list(runtime.functions.values()))
-        if system_message is not None:
-            converted_system_message = ChatUserMessage(
-                role="user",
-                # TODO: this is specific to Together's API. Look into improving it.
-                content=get_text_content_as_str(system_message["content"] or []),  # type: ignore -- This is correct for TogetherAI's API
-            )
-            openai_messages = [converted_system_message, *openai_messages]
-        completion = chat_completion_request(self.client, self.model, openai_messages, [], None, self.temperature)
-        output = ChatAssistantMessage(
-            role="assistant",
-            content=[text_content_block_from_string(completion.choices[0].message.content or "")],
-            tool_calls=[],
-        )
-        if len(runtime.functions) == 0 or "<function-call>" not in (get_text_content_as_str(output["content"] or [])):
-            return query, runtime, env, [*messages, output], extra_args
-        for _ in range(self._MAX_ATTEMPTS):
-            try:
-                output = self._parse_model_output(completion.choices[0].message)
-                break
-            except (InvalidModelOutputError, ASTParsingError) as e:
-                error_message = ChatUserMessage(
-                    role="user", content=[text_content_block_from_string(f"Invalid function calling output: {e!s}")]
-                )
-                completion = chat_completion_request(
-                    self.client,
-                    self.model,
-                    [*openai_messages, _message_to_openai(error_message, self.model)],
-                    [],
-                    None,
-                    self.temperature,
-                )
-        return query, runtime, env, [*messages, output], extra_args
-
-
-class PromptingLLM(BasePromptingLLM):
+class PromptingLLM(OpenAILLM):
     """Function calling for Llama 3 based on [`hamelsmu`](https://github.com/hamelsmu)'s
     [prompt](https://github.com/hamelsmu/replicate-examples/blob/master/cog-vllm-tools/predict.py)."""
+
+    _MAX_ATTEMPTS = 3
+    """Maximum number of attempts at parsing the model output."""
 
     _tool_calling_prompt = """You are a hepful assistant. You are given a task and a set of possible functions inside <function-definitions> tags.
 Calling these functions are optional. Carefully consider the question and determine if one or more functions can be used to answer the question. Place your thoughts and reasoning behind your decision in <function-thoughts> tags.
@@ -219,10 +103,20 @@ Sometimes, you may need to call multiple functions in multiple rounds to get the
 Once you receive the result of one tool, think if you need to call another tool in the <function-thoughts> tags. If you do, then call the next tool. If you are done and do not need to call another tool, then do explicitly give the answer in <answer> tags. Tell the answer to the user in the message if you don't need other tools.
 
 If you think you will need to call multiple tools in multiple stages, but you don't have yet the information to call all of them, then wait to receive the information back from the tools you can already call."""
+    """The system prompt that instructs the LLM on how to use the tools."""
+
+    def _get_system_message(
+        self, messages: Sequence[ChatMessage]
+    ) -> tuple[ChatSystemMessage | None, Sequence[ChatMessage]]:
+        if len(messages) == 0:
+            return None, []
+        if messages[0]["role"] == "system":
+            return messages[0], messages[1:]
+        return None, messages
 
     def _make_tools_prompt(
         self, system_message: ChatSystemMessage | None, tools: Sequence[Function]
-    ) -> ChatUserMessage | None:
+    ) -> ChatMessage | None:
         """It creates a system message by instructing the model on how to use tools and
         provides the tools' documentation, placed within the <function-definitions> tags.
         The tool calling prompt is stored in the
@@ -326,3 +220,52 @@ If you think you will need to call multiple tools in multiple stages, but you do
             role="user",
             content=[text_content_block_from_string(f"{function_call}{tool_result}")],
         )
+
+    def query(
+        self,
+        query: str,
+        runtime: FunctionsRuntime,
+        env: Env = EmptyEnv(),
+        messages: Sequence[ChatMessage] = [],
+        extra_args: dict = {},
+    ) -> tuple[str, FunctionsRuntime, Env, Sequence[ChatMessage], dict]:
+        adapted_messages = [
+            self._tool_message_to_user_message(message) if message["role"] == "tool" else message
+            for message in messages
+        ]
+        # TODO: this is specific to Together's API. Look into improving it.
+        openai_messages = [_message_to_together(message, self.model) for message in adapted_messages if message["role"] != "system"]
+        system_message, other_messages = self._get_system_message(messages)
+        system_message = self._make_tools_prompt(system_message, list(runtime.functions.values()))
+        if system_message is not None:
+            converted_system_message = ChatUserMessage(
+                role="user",
+                # TODO: this is specific to Together's API. Look into improving it.
+                content=get_text_content_as_str(system_message["content"] or []),  # type: ignore -- This is correct for TogetherAI's API
+            )
+            openai_messages = [converted_system_message, *openai_messages]
+        completion = chat_completion_request(self.client, self.model, openai_messages, [], None, self.temperature)
+        output = ChatAssistantMessage(
+            role="assistant",
+            content=[text_content_block_from_string(completion.choices[0].message.content or "")],
+            tool_calls=[],
+        )
+        if len(runtime.functions) == 0 or "<function-call>" not in (get_text_content_as_str(output["content"] or [])):
+            return query, runtime, env, [*messages, output], extra_args
+        for _ in range(self._MAX_ATTEMPTS):
+            try:
+                output = self._parse_model_output(completion.choices[0].message)
+                break
+            except (InvalidModelOutputError, ASTParsingError) as e:
+                error_message = ChatUserMessage(
+                    role="user", content=[text_content_block_from_string(f"Invalid function calling output: {e!s}")]
+                )
+                completion = chat_completion_request(
+                    self.client,
+                    self.model,
+                    [*openai_messages, _message_to_openai(error_message, self.model)],
+                    [],
+                    None,
+                    self.temperature,
+                )
+        return query, runtime, env, [*messages, output], extra_args
