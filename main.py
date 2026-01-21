@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from enum import Enum
 from pathlib import Path
@@ -6,12 +7,11 @@ from pathlib import Path
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.benchmark as bench
 import agentdojo.task_suite as task_suite
-import openai
 from agentdojo.logging import OutputLogger
 from rich.logging import RichHandler
 
+import lamb.llm_wrapper
 import lamb.tool_execution as tools
-from lamb.prompting_llm import PromptingLLM
 
 
 class OllamaModel(Enum):
@@ -27,20 +27,13 @@ class OllamaModel(Enum):
 MODEL = OllamaModel.LLAMA3
 
 
-def local_llm(model: OllamaModel) -> PromptingLLM:
-    try:
-        client = openai.OpenAI(
-            base_url="http://localhost:11434/v1",
-            api_key="ollama",  # required, but unused
-        )
-        return PromptingLLM(client, model.value)
-    except openai.APIConnectionError:
-        print("Ollama must be running", file=sys.stderr)
-        sys.exit(1)
-
-
 def main():
-    llm = local_llm(MODEL)
+    try:
+        gemini_key = os.environ["LAMB_GEMINI_API_KEY"]
+    except KeyError:
+        logging.error("LAMB_GENINI_API_KEY env var not set")
+        sys.exit(1)
+    llm = lamb.llm_wrapper.Gemma(api_key=gemini_key)
     tools_loop = tools.ToolsExecutionLoop(
         [
             tools.ToolsExecutor(),
