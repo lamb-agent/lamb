@@ -7,7 +7,7 @@ import openai
 
 import lamb.controller as controller
 from lamb.prompting_llm import PromptingLLM
-from lamb.types import Llm, PipeElementWrapper, State
+from lamb.types import Transition, PipeElementWrapper, State
 
 
 def local(model: str) -> pipeline.BasePipelineElement:
@@ -41,7 +41,7 @@ def _new_prompting_llm_openai(
     return PipeElementWrapper(_make_run(llm.next))
 
 
-def _make_run(llm: Llm):
+def _make_run(llm: Transition):
     """Create run function that executes the agent loop."""
 
     def retry_llm(state: State, timeout: int = 30):

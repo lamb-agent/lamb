@@ -6,7 +6,7 @@ import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 from agentdojo.types import ChatMessage
 
-type Llm = Callable[[State], State]
+type Transition = Callable[[State], State]
 
 
 @dataclass
@@ -19,9 +19,11 @@ class State[Env: rt.TaskEnvironment]:
 
 
 class PipeElementWrapper(pipeline.BasePipelineElement):
-    run: Callable[[State], State]
+    """Transforms a state transition function into an AgentDojo compatible BasePipelineElement."""
 
-    def __init__(self, run: Callable[[State], State]) -> None:
+    run: Transition
+
+    def __init__(self, run: Transition) -> None:
         self.run = run
 
     def query(

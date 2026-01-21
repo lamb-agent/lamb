@@ -16,7 +16,7 @@ from agentdojo.types import (
 )
 from pydantic import BaseModel
 
-from lamb.types import Llm, State
+from lamb.types import Transition, State
 
 
 def is_string_list(s: str):
@@ -126,8 +126,8 @@ def tool_executor(
 
 def controller(
     state: State,
-    tool_executor: Callable[[State], State],
-    llm: Llm,
+    tool_executor: Transition,
+    llm: Transition,
     max_iters: int = 25,
 ) -> State:
     nr_messages = len(state.messages)
@@ -152,7 +152,7 @@ def controller(
             next_state = state
             return state
         case _:
-            logging.error(f"Illegal message role: {last_message["role"]}")
+            logging.error(f"Illegal message role: {last_message['role']}")
             sys.exit(1)
     assert len(next_state.messages) > nr_messages, "LLM must populate messages"
     return controller(next_state, tool_executor, llm, max_iters=max_iters - 1)
