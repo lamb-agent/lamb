@@ -1,86 +1,72 @@
 import logging
 import sys
 import time
-from collections.abc import Sequence
 
 import agentdojo.agent_pipeline as pipeline
-import agentdojo.functions_runtime as rt
-import agentdojo.types as ad_types
-import google.genai
-import google.genai.errors
 import openai
 
+import lamb.controller as controller
 from lamb.prompting_llm import PromptingLLM
+from lamb.types import Llm, PipeElementWrapper, State
 
 
-class LocalLLM(pipeline.BasePipelineElement):
-    def __init__(self, model: str):
-        client = openai.OpenAI(
-            base_url="http://localhost:11434/v1",
-            api_key="ollama",  # required, but unused
-        )
-        self.llm = PromptingLLM(client, model)
+def local(model: str) -> pipeline.BasePipelineElement:
+    llm = _new_prompting_llm_openai(
+        model=model,
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",  # required, but unused
+    )
+    return PipeElementWrapper(_make_run(llm.next))
 
-    def query(
-        self,
-        query: str,
-        runtime: rt.FunctionsRuntime,
-        env: rt.Env = rt.EmptyEnv(),  # ty:ignore[invalid-parameter-default]
-        messages: Sequence[ad_types.ChatMessage] = [],
-        extra_args: dict = {},
-    ) -> tuple[str, rt.FunctionsRuntime, rt.Env, Sequence[ad_types.ChatMessage], dict]:
+
+def gemma(api_key: str) -> pipeline.BasePipelineElement:
+    llm = _new_prompting_llm_openai(
+        model="gemma-3-27b-it",
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        api_key=api_key,
+    )
+
+    return PipeElementWrapper(_make_run(llm.next))
+
+
+def _new_prompting_llm_openai(
+    model: str,
+    base_url: str,
+    api_key: str,
+) -> PromptingLLM:
+    """Instantiate prompting llm with openai client"""
+
+    client = openai.OpenAI(
+        base_url=base_url,
+        api_key=api_key,
+    )
+    return PromptingLLM(pipeline.OpenAILLM(client=client, model=model))
+
+
+def _make_run(llm: Llm):
+    """Create run function that executes the agent loop."""
+
+    def retry_llm(state: State, timeout: int = 30):
+        """Retries calling the llm if rate limit is exceeded.
+
+        Fails gracefully, if connection couldn't be established.
+        """
+
         try:
-            return self.llm.query(query, runtime, env, messages, extra_args)
-        except openai.APIConnectionError:
-            logging.error("Ollama must be running")
-            sys.exit(1)
-
-
-class GoogleLLM(pipeline.BasePipelineElement):
-    def __init__(self, model: str, api_key: str):
-        client = google.genai.Client(api_key=api_key)
-        self.llm = pipeline.GoogleLLM(model=model, client=client)
-
-    def query(
-        self,
-        query: str,
-        runtime: rt.FunctionsRuntime,
-        env: rt.Env = rt.EmptyEnv(),  # ty:ignore[invalid-parameter-default]
-        messages: Sequence[ad_types.ChatMessage] = [],
-        extra_args: dict = {},
-    ) -> tuple[str, rt.FunctionsRuntime, rt.Env, Sequence[ad_types.ChatMessage], dict]:
-        try:
-            return self.llm.query(query, runtime, env, messages, extra_args)
-        except google.genai.errors.ClientError as err:
-            match err:
-                case google.genai.errors.ClientError(code=429):
-                    logging.error("Google API exhausted, waiting...")
-                    time.sleep(30)
-                    return self.query(query, runtime, env, messages, extra_args)
-                case _:
-                    logging.error(f"Google API error: {err}")
-                    sys.exit(1)
-
-
-class Gemma(pipeline.BasePipelineElement):
-    def __init__(self, api_key: str):
-        client = openai.OpenAI(
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            api_key=api_key,
-        )
-        self.llm = PromptingLLM(client=client, model="gemma-3-27b-it")
-
-    def query(
-        self,
-        query: str,
-        runtime: rt.FunctionsRuntime,
-        env: rt.Env = rt.EmptyEnv(),  # ty:ignore[invalid-parameter-default]
-        messages: Sequence[ad_types.ChatMessage] = [],
-        extra_args: dict = {},
-    ) -> tuple[str, rt.FunctionsRuntime, rt.Env, Sequence[ad_types.ChatMessage], dict]:
-        try:
-            return self.llm.query(query, runtime, env, messages, extra_args)
+            return llm(state)
         except openai.RateLimitError:
             logging.error("Google API exhausted, waiting...")
-            time.sleep(30)
-            return self.query(query, runtime, env, messages, extra_args)
+            time.sleep(timeout)
+            return retry_llm(state)
+        except openai.APIConnectionError:
+            logging.error("Failed to connect")
+            sys.exit(1)
+
+    def run(state: State):
+        return controller.controller(
+            state=state,
+            tool_executor=controller.tool_executor,
+            llm=retry_llm,
+        )
+
+    return run

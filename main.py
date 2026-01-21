@@ -11,7 +11,6 @@ from agentdojo.logging import OutputLogger
 from rich.logging import RichHandler
 
 import lamb.llm_wrapper
-import lamb.tool_execution as tools
 
 
 class OllamaModel(Enum):
@@ -33,13 +32,7 @@ def main():
     except KeyError:
         logging.error("LAMB_GENINI_API_KEY env var not set")
         sys.exit(1)
-    llm = lamb.llm_wrapper.Gemma(api_key=gemini_key)
-    tools_loop = tools.ToolsExecutionLoop(
-        [
-            tools.ToolsExecutor(),
-            llm,
-        ]
-    )
+    llm = lamb.llm_wrapper.gemma(gemini_key)
     tools_pipeline = pipeline.AgentPipeline(
         [
             pipeline.SystemMessage(
@@ -47,7 +40,6 @@ def main():
             ),
             pipeline.InitQuery(),
             llm,
-            tools_loop,
         ]
     )
     # This is an inconsistency in AgentDojo.
@@ -55,16 +47,19 @@ def main():
     # but the `AgentPipeline` class doesn't have it.
     tools_pipeline.__setattr__("name", "lamb")
 
-    slack_suite = task_suite.get_suite("v1.2", "slack")
+    suites = task_suite.get_suites("v1.2")
     with OutputLogger(None, None):
-        results = bench.benchmark_suite_without_injections(
-            suite=slack_suite,
-            agent_pipeline=tools_pipeline,
-            logdir=Path("./logs"),
-            force_rerun=False,
-        )
-        utility = bench.aggregate_results([results["utility_results"]])
-        print(f"Utility: {utility}")
+        for suite_name, suite in suites.items():
+            if suite_name == "slack":
+                continue
+            results = bench.benchmark_suite_without_injections(
+                suite=suite,
+                agent_pipeline=tools_pipeline,
+                logdir=Path("./logs"),
+                force_rerun=False,
+            )
+            utility = bench.aggregate_results([results["utility_results"]])
+            print(f"Utility of {suite_name}: {utility}")
 
 
 def configure_logging():
