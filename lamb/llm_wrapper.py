@@ -11,36 +11,34 @@ from lamb.types import Llm, PipeElementWrapper, State
 
 
 def local(model: str) -> pipeline.BasePipelineElement:
-    llm = _new_prompting_llm_openai(
+    return _new_prompting_llm_openai(
         model=model,
         base_url="http://localhost:11434/v1",
         api_key="ollama",  # required, but unused
     )
-    return PipeElementWrapper(_make_run(llm.next))
 
 
 def gemma(api_key: str) -> pipeline.BasePipelineElement:
-    llm = _new_prompting_llm_openai(
+    return _new_prompting_llm_openai(
         model="gemma-3-27b-it",
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         api_key=api_key,
     )
-
-    return PipeElementWrapper(_make_run(llm.next))
 
 
 def _new_prompting_llm_openai(
     model: str,
     base_url: str,
     api_key: str,
-) -> PromptingLLM:
+) -> pipeline.BasePipelineElement:
     """Instantiate prompting llm with openai client"""
 
     client = openai.OpenAI(
         base_url=base_url,
         api_key=api_key,
     )
-    return PromptingLLM(pipeline.OpenAILLM(client=client, model=model))
+    llm = PromptingLLM(pipeline.OpenAILLM(client=client, model=model))
+    return PipeElementWrapper(_make_run(llm.next))
 
 
 def _make_run(llm: Llm):
