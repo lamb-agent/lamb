@@ -1,4 +1,5 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/llms/prompting_llm.py
+import sys
 import abc
 import json
 import re
@@ -53,7 +54,7 @@ def _message_to_together(message: ChatMessage, model_name: str) -> ChatCompletio
                 return ChatCompletionAssistantMessageParam(
                     role="assistant",
                     content=get_text_content_as_str(message["content"] or []),
-                    tool_calls=tool_calls,
+                    tool_calls=[], # not allowed
                 )
             return ChatCompletionAssistantMessageParam(
                 role="assistant",
@@ -85,7 +86,7 @@ class BasePromptingLLM(OpenAILLM):
     @abc.abstractmethod
     def _make_tools_prompt(
         self, system_message: ChatSystemMessage | None, tools: Sequence[Function]
-    ) -> ChatSystemMessage | None:
+    ) -> ChatUserMessage | None:
         """Builds the system prompt by putting the original system message, the tools documentation and
         the instruction prompt together.
 
@@ -153,12 +154,12 @@ class BasePromptingLLM(OpenAILLM):
             for message in messages
         ]
         # TODO: this is specific to Together's API. Look into improving it.
-        openai_messages = [_message_to_together(message, self.model) for message in adapted_messages]
+        openai_messages = [_message_to_together(message, self.model) for message in adapted_messages if message["role"] != "system"]
         system_message, other_messages = self._get_system_message(messages)
         system_message = self._make_tools_prompt(system_message, list(runtime.functions.values()))
         if system_message is not None:
-            converted_system_message = ChatSystemMessage(
-                role="system",
+            converted_system_message = ChatUserMessage(
+                role="user",
                 # TODO: this is specific to Together's API. Look into improving it.
                 content=get_text_content_as_str(system_message["content"] or []),  # type: ignore -- This is correct for TogetherAI's API
             )
@@ -221,7 +222,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
 
     def _make_tools_prompt(
         self, system_message: ChatSystemMessage | None, tools: Sequence[Function]
-    ) -> ChatSystemMessage | None:
+    ) -> ChatUserMessage | None:
         """It creates a system message by instructing the model on how to use tools and
         provides the tools' documentation, placed within the <function-definitions> tags.
         The tool calling prompt is stored in the
@@ -250,7 +251,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
             tools_docs += f"\n</function-{index}>\n\n"
         tool_calling_prompt = self._tool_calling_prompt.format(funcs=tools_docs)
         message_content = f"{tool_calling_prompt}\n{system_prompt}"
-        return ChatSystemMessage(role="system", content=[text_content_block_from_string(message_content)])
+        return ChatUserMessage(role="user", content=[text_content_block_from_string(message_content)])
 
     def _parse_model_output(self, message: ChatCompletionMessage) -> ChatAssistantMessage:
         """Parses the model output by extracting text and/or tool call contents from the message.
