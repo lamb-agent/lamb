@@ -91,7 +91,7 @@ class PromptingLLM:
     _MAX_ATTEMPTS = 3
     """Maximum number of attempts at parsing the model output."""
 
-    _tool_calling_prompt = """You are a hepful assistant. You are given a task and a set of possible functions inside <function-definitions> tags.
+    _tool_calling_prompt = """You are a helpful assistant. You are given a task and a set of possible functions inside <function-definitions> tags.
 Calling these functions are optional. Carefully consider the question and determine if one or more functions can be used to answer the question. Place your thoughts and reasoning behind your decision in <function-thoughts> tags.
 If the given question lacks the parameters required by the function, point it out in <function-thoughts> tags. Below is a list of function definitions:
 <function-definitions>
@@ -153,15 +153,15 @@ If you think you will need to call multiple tools in multiple stages, but you do
             if system_message is not None
             else ""
         )
-        for index, tool in enumerate(tools, start=1):
+        for tool in tools:
             tool_dict = {
                 "name": tool.name,
                 "description": tool.description,
                 "parameters": tool.parameters.model_json_schema(),
             }
-            tools_docs += f"<function-{index}>\n"
+            tools_docs += f"<{tool.name}>\n"
             tools_docs += json.dumps(tool_dict, indent=4)
-            tools_docs += f"\n</function-{index}>\n\n"
+            tools_docs += f"\n</{tool.name}>\n\n"
         tool_calling_prompt = self._tool_calling_prompt.format(funcs=tools_docs)
         message_content = f"{tool_calling_prompt}\n{system_prompt}"
         return ChatUserMessage(

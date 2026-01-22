@@ -149,7 +149,6 @@ def controller(
             next_state = llm(tool_state)
         # assistant finished without calling tools
         case {"role": "assistant"}:
-            next_state = state
             return state
         case _:
             logging.error(f"Illegal message role: {last_message['role']}")

@@ -44,7 +44,7 @@ def _new_prompting_llm_openai(
 def _make_run(llm: Transition):
     """Create run function that executes the agent loop."""
 
-    def retry_llm(state: State, timeout: int = 30):
+    def retry_llm(state: State, timeout: int = 30) -> State:
         """Retries calling the llm if rate limit is exceeded.
 
         Fails gracefully, if connection couldn't be established.
@@ -60,7 +60,7 @@ def _make_run(llm: Transition):
             logging.error("Failed to connect")
             sys.exit(1)
 
-    def run(state: State):
+    def run(state: State) -> State:
         return controller.controller(
             state=state,
             tool_executor=controller.tool_executor,

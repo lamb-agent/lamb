@@ -30,9 +30,10 @@ def main():
     try:
         gemini_key = os.environ["LAMB_GEMINI_API_KEY"]
     except KeyError:
-        logging.error("LAMB_GENINI_API_KEY env var not set")
+        logging.error("LAMB_GEMINI_API_KEY env var not set")
         sys.exit(1)
     llm = lamb.llm_wrapper.gemma(gemini_key)
+    # llm = lamb.llm_wrapper.local(MODEL.value)
     tools_pipeline = pipeline.AgentPipeline(
         [
             pipeline.SystemMessage(
@@ -50,7 +51,7 @@ def main():
     suites = task_suite.get_suites("v1.2")
     with OutputLogger(None, None):
         for suite_name, suite in suites.items():
-            if suite_name == "slack":
+            if suite_name != "slack":
                 continue
             results = bench.benchmark_suite_without_injections(
                 suite=suite,
