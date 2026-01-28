@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-from enum import Enum
 from pathlib import Path
 
 import agentdojo.agent_pipeline as pipeline
@@ -10,20 +9,7 @@ import agentdojo.task_suite as task_suite
 from agentdojo.logging import OutputLogger
 from rich.logging import RichHandler
 
-import lamb.llm_wrapper
-
-
-class OllamaModel(Enum):
-    DEEPSEEK = "deepseek-r1:1.5b"
-    FUNCTIONGEMMA = "functiongemma:latest"
-    GEMMA = "gemma3:4b"
-    LLAMA3 = "llama3.2:3b"
-    MINISTRAL = "ministral-3:3b"
-    MISTRAL = "mistral:7b"
-    PHI = "phi3:3.8b"
-
-
-MODEL = OllamaModel.LLAMA3
+import lamb.llm_wrapper as llm
 
 
 def main():
@@ -32,15 +18,21 @@ def main():
     except KeyError:
         logging.error("LAMB_GEMINI_API_KEY env var not set")
         sys.exit(1)
-    llm = lamb.llm_wrapper.gemma(gemini_key)
-    # llm = lamb.llm_wrapper.local(MODEL.value)
+    try:
+        cerebras_key = os.environ["LAMB_CEREBRAS_API_KEY"]
+    except KeyError:
+        logging.error("LAMB_CEREBRAS_API_KEY env var not set")
+        sys.exit(1)
+    model = llm.cerebras(
+        llm.CerebrasModel.GPT_OSS.value, cerebras_key
+    )
     tools_pipeline = pipeline.AgentPipeline(
         [
             pipeline.SystemMessage(
                 "You are a helpful AI assistant with tool-calling capabilities."
             ),
             pipeline.InitQuery(),
-            llm,
+            model,
         ]
     )
     # This is an inconsistency in AgentDojo.
@@ -51,7 +43,7 @@ def main():
     suites = task_suite.get_suites("v1.2")
     with OutputLogger(None, None):
         for suite_name, suite in suites.items():
-            if suite_name != "slack":
+            if suite_name == "slack":
                 continue
             results = bench.benchmark_suite_without_injections(
                 suite=suite,

@@ -1,13 +1,29 @@
 import logging
 import sys
 import time
+from enum import Enum
 
 import agentdojo.agent_pipeline as pipeline
 import openai
 
 import lamb.controller as controller
 from lamb.prompting_llm import PromptingLLM
-from lamb.types import Transition, PipeElementWrapper, State
+from lamb.types import PipeElementWrapper, State, Transition
+
+
+class OllamaModel(Enum):
+    DEEPSEEK = "deepseek-r1:1.5b"
+    FUNCTIONGEMMA = "functiongemma:latest"
+    GEMMA = "gemma3:4b"
+    LLAMA3 = "llama3.2:3b"
+    MINISTRAL = "ministral-3:3b"
+    MISTRAL = "mistral:7b"
+    PHI = "phi3:3.8b"
+
+
+class CerebrasModel(Enum):
+    GPT_OSS = "gpt-oss-120b"
+    LLAMA3 = "llama-3.3-70b"
 
 
 def local(model: str) -> pipeline.BasePipelineElement:
@@ -22,6 +38,14 @@ def gemma(api_key: str) -> pipeline.BasePipelineElement:
     return _new_prompting_llm_openai(
         model="gemma-3-27b-it",
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        api_key=api_key,
+    )
+
+
+def cerebras(model: str, api_key: str) -> pipeline.BasePipelineElement:
+    return _new_prompting_llm_openai(
+        model=model,
+        base_url="https://api.cerebras.ai/v1",
         api_key=api_key,
     )
 
