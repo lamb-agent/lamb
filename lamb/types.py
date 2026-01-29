@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import astuple, dataclass
-from typing import Callable, TypedDict, cast
+from typing import Callable
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
@@ -11,7 +11,8 @@ from lamb import tool_result
 type Transition = Callable[[State], State]
 
 
-class Config(TypedDict):
+@dataclass
+class Config:
     tool_result_formatter: tool_result.Formatter
 
 
@@ -40,9 +41,6 @@ class PipeElementWrapper(pipeline.BasePipelineElement):
         runtime: rt.FunctionsRuntime,
         env: rt.Env = rt.EmptyEnv(),  # ty:ignore[invalid-parameter-default]
         messages: Sequence[ChatMessage] = [],
-        extra_args: dict = {},
+        extra_args: dict = {},  # we ignore extra_args
     ) -> tuple[str, rt.FunctionsRuntime, rt.Env, Sequence[ChatMessage], dict]:
-        config: Config = cast(
-            Config, self.config | extra_args
-        )  # TODO: Figure out if there is a safe way to do this
-        return astuple(self.run(State(query, runtime, env, messages, config)))
+        return astuple(self.run(State(query, runtime, env, messages, self.config)))

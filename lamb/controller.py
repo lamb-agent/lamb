@@ -75,8 +75,9 @@ def tool_executor(state: State) -> State:
             state.env, tool_call.function, tool_call.args
         )
         tool_call_id = tool_call.id
-        formatter = state.extra_args["tool_result_formatter"]
-        formatted_tool_call_result = formatter.format(tool_call_result, tool_call.function)
+        formatted_tool_call_result = state.extra_args.tool_result_formatter.format(
+            tool_call_result, tool_call.function
+        )
         tool_call_results.append(
             ChatToolResultMessage(
                 role="tool",

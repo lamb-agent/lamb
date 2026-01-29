@@ -11,6 +11,7 @@ from rich.logging import RichHandler
 
 import lamb.llm_wrapper as llm
 import lamb.tool_result as tool_result
+from lamb.types import Config
 
 
 def main():
@@ -24,10 +25,9 @@ def main():
     except KeyError:
         logging.error("LAMB_CEREBRAS_API_KEY env var not set")
         sys.exit(1)
-    model = llm.cerebras(
-        llm.CerebrasModel.GPT_OSS.value,
-        cerebras_key,
-        {"tool_result_formatter": tool_result.VariableFormatter()},
+    model = llm.gemma(
+        gemini_key,
+        Config(tool_result_formatter=tool_result.VariableFormatter()),
     )
     tools_pipeline = pipeline.AgentPipeline(
         [

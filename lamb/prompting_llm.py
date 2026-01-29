@@ -3,8 +3,9 @@ import json
 import re
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import Callable, assert_never
+from typing import Callable
 
+import agentdojo.functions_runtime as rt
 from agentdojo.agent_pipeline.llms.openai_llm import (
     OpenAILLM,
     _message_to_openai,
@@ -16,7 +17,6 @@ from agentdojo.ast_utils import (
     create_python_function_from_tool_call,
     parse_tool_calls_from_python_function,
 )
-import agentdojo.functions_runtime as rt
 from agentdojo.types import (
     ChatAssistantMessage,
     ChatMessage,
@@ -311,7 +311,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
             try:
                 output = self._parse_model_output(
                     completion.choices[0].message,
-                    state.extra_args["tool_result_formatter"].expand,
+                    state.extra_args.tool_result_formatter.expand,
                 )
                 break
             except (InvalidModelOutputError, ASTParsingError) as e:
