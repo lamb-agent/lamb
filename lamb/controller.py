@@ -2,19 +2,13 @@
 import logging
 import sys
 from ast import literal_eval
-from collections.abc import Callable
 from dataclasses import replace
 
-import yaml
 from agentdojo.agent_pipeline.llms.google_llm import EMPTY_FUNCTION_NAME
-from agentdojo.functions_runtime import (
-    FunctionReturnType,
-)
 from agentdojo.types import (
     ChatToolResultMessage,
     text_content_block_from_string,
 )
-from pydantic import BaseModel
 
 from lamb.types import Transition, State
 
@@ -27,37 +21,7 @@ def is_string_list(s: str):
         return False
 
 
-def tool_result_to_str(
-    tool_result: FunctionReturnType,
-    dump_fn: Callable[[dict | list[dict]], str] = yaml.safe_dump,
-) -> str:
-    """Basic tool output formatter with YAML dump by default. Could work with `json.dumps` as
-    `dump_fn`."""
-    if isinstance(tool_result, BaseModel):
-        return dump_fn(tool_result.model_dump()).strip()
-
-    if isinstance(tool_result, list):
-        res_items = []
-        for item in tool_result:
-            if type(item) in [str, int]:
-                res_items += [str(item)]
-            elif isinstance(item, BaseModel):
-                res_items += [item.model_dump()]
-            else:
-                raise TypeError(
-                    "Not valid type for item tool result: " + str(type(item))
-                )
-
-        # If type checking passes, this is guaranteed to be a list of BaseModel
-        return dump_fn(res_items).strip()
-
-    return str(tool_result)
-
-
-def tool_executor(
-    state: State,
-    tool_output_formatter: Callable[[FunctionReturnType], str] = tool_result_to_str,
-) -> State:
+def tool_executor(state: State) -> State:
     """Executes the tool calls in the last messages for which tool execution is required.
 
     Args:
@@ -111,7 +75,8 @@ def tool_executor(
             state.env, tool_call.function, tool_call.args
         )
         tool_call_id = tool_call.id
-        formatted_tool_call_result = tool_output_formatter(tool_call_result)
+        formatter = state.extra_args["tool_result_formatter"]
+        formatted_tool_call_result = formatter.format(tool_call_result, tool_call.function)
         tool_call_results.append(
             ChatToolResultMessage(
                 role="tool",

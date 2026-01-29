@@ -10,6 +10,7 @@ from agentdojo.logging import OutputLogger
 from rich.logging import RichHandler
 
 import lamb.llm_wrapper as llm
+import lamb.tool_result as tool_result
 
 
 def main():
@@ -24,7 +25,9 @@ def main():
         logging.error("LAMB_CEREBRAS_API_KEY env var not set")
         sys.exit(1)
     model = llm.cerebras(
-        llm.CerebrasModel.GPT_OSS.value, cerebras_key
+        llm.CerebrasModel.GPT_OSS.value,
+        cerebras_key,
+        {"tool_result_formatter": tool_result.VariableFormatter()},
     )
     tools_pipeline = pipeline.AgentPipeline(
         [
@@ -43,7 +46,7 @@ def main():
     suites = task_suite.get_suites("v1.2")
     with OutputLogger(None, None):
         for suite_name, suite in suites.items():
-            if suite_name == "slack":
+            if suite_name == "travel":
                 continue
             results = bench.benchmark_suite_without_injections(
                 suite=suite,

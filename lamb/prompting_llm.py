@@ -1,9 +1,9 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/llms/prompting_llm.py
 import json
-import logging
 import re
 from collections.abc import Sequence
 from dataclasses import replace
+from typing import Callable, assert_never
 
 from agentdojo.agent_pipeline.llms.openai_llm import (
     OpenAILLM,
@@ -16,7 +16,7 @@ from agentdojo.ast_utils import (
     create_python_function_from_tool_call,
     parse_tool_calls_from_python_function,
 )
-from agentdojo.functions_runtime import Env, Function
+import agentdojo.functions_runtime as rt
 from agentdojo.types import (
     ChatAssistantMessage,
     ChatMessage,
@@ -130,7 +130,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
         return None, messages
 
     def _make_tools_prompt(
-        self, system_message: ChatSystemMessage | None, tools: Sequence[Function]
+        self, system_message: ChatSystemMessage | None, tools: Sequence[rt.Function]
     ) -> ChatMessage | None:
         """It creates a system message by instructing the model on how to use tools and
         provides the tools' documentation, placed within the <function-definitions> tags.
@@ -169,7 +169,9 @@ If you think you will need to call multiple tools in multiple stages, but you do
         )
 
     def _parse_model_output(
-        self, message: ChatCompletionMessage
+        self,
+        message: ChatCompletionMessage,
+        expand_vars: Callable[[rt.FunctionCallArgTypes], rt.FunctionCallArgTypes],
     ) -> ChatAssistantMessage:
         """Parses the model output by extracting text and/or tool call contents from the message.
 
@@ -219,7 +221,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
         tool_calls = parse_tool_calls_from_python_function(tool_call_content)
         for tool_call in tool_calls:
             args = {
-                arg_name: ("..." if arg_value == Ellipsis else arg_value)
+                arg_name: ("..." if arg_value == Ellipsis else expand_vars(arg_value))
                 for arg_name, arg_value in tool_call.args.items()
             }
             tool_call.args = args
@@ -259,8 +261,8 @@ If you think you will need to call multiple tools in multiple stages, but you do
 
     def next(
         self,
-        state: State[Env],
-    ) -> State[Env]:
+        state: State,
+    ) -> State:
         adapted_messages = [
             self._tool_message_to_user_message(message)
             if message["role"] == "tool"
@@ -307,7 +309,10 @@ If you think you will need to call multiple tools in multiple stages, but you do
             return replace(state, messages=[*state.messages, output])
         for _ in range(self._MAX_ATTEMPTS):
             try:
-                output = self._parse_model_output(completion.choices[0].message)
+                output = self._parse_model_output(
+                    completion.choices[0].message,
+                    state.extra_args["tool_result_formatter"].expand,
+                )
                 break
             except (InvalidModelOutputError, ASTParsingError) as e:
                 error_message = ChatUserMessage(
