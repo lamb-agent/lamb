@@ -6,9 +6,8 @@ from enum import Enum
 import agentdojo.agent_pipeline as pipeline
 import openai
 
-import lamb.controller as controller
 from lamb.prompting_llm import PromptingLLM
-from lamb.types import Config, PipeElementWrapper, State, Transition
+from lamb.types import State, Transition
 
 
 class OllamaModel(Enum):
@@ -26,30 +25,27 @@ class CerebrasModel(Enum):
     LLAMA3 = "llama-3.3-70b"
 
 
-def local(model: str, config: Config) -> pipeline.BasePipelineElement:
+def local(model: str) -> Transition:
     return _new_prompting_llm_openai(
         model=model,
         base_url="http://localhost:11434/v1",
         api_key="ollama",  # required, but unused
-        config=config,
     )
 
 
-def gemma(api_key: str, config: Config) -> pipeline.BasePipelineElement:
+def gemma(api_key: str) -> Transition:
     return _new_prompting_llm_openai(
         model="gemma-3-27b-it",
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         api_key=api_key,
-        config=config,
     )
 
 
-def cerebras(model: str, api_key: str, config: Config) -> pipeline.BasePipelineElement:
+def cerebras(model: str, api_key: str) -> Transition:
     return _new_prompting_llm_openai(
         model=model,
         base_url="https://api.cerebras.ai/v1",
         api_key=api_key,
-        config=config,
     )
 
 
@@ -57,8 +53,7 @@ def _new_prompting_llm_openai(
     model: str,
     base_url: str,
     api_key: str,
-    config: Config,
-) -> pipeline.BasePipelineElement:
+) -> Transition:
     """Instantiate prompting llm with openai client"""
 
     client = openai.OpenAI(
@@ -66,13 +61,13 @@ def _new_prompting_llm_openai(
         api_key=api_key,
     )
     llm = PromptingLLM(pipeline.OpenAILLM(client=client, model=model))
-    return PipeElementWrapper(_make_run(llm.next), config)
+    return _make_retry(llm.next)
 
 
-def _make_run(llm: Transition):
-    """Create run function that executes the agent loop."""
+def _make_retry(llm: Transition):
+    """Make the llm retry on rate limit exhaustion."""
 
-    def retry_llm(state: State, timeout: int = 30) -> State:
+    def retry(state: State, timeout: int = 30) -> State:
         """Retries calling the llm if rate limit is exceeded.
 
         Fails gracefully, if connection couldn't be established.
@@ -83,16 +78,9 @@ def _make_run(llm: Transition):
         except openai.RateLimitError:
             logging.error("Google API exhausted, waiting...")
             time.sleep(timeout)
-            return retry_llm(state)
+            return retry(state)
         except openai.APIConnectionError:
             logging.error("Failed to connect")
             sys.exit(1)
 
-    def run(state: State) -> State:
-        return controller.controller(
-            state=state,
-            tool_executor=controller.tool_executor,
-            llm=retry_llm,
-        )
-
-    return run
+    return retry

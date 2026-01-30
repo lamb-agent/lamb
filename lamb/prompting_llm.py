@@ -35,7 +35,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from lamb.types import State
+from lamb import types
 
 
 class InvalidModelOutputError(Exception): ...
@@ -261,8 +261,8 @@ If you think you will need to call multiple tools in multiple stages, but you do
 
     def next(
         self,
-        state: State,
-    ) -> State:
+        state: types.State,
+    ) -> types.State:
         adapted_messages = [
             self._tool_message_to_user_message(message)
             if message["role"] == "tool"
@@ -311,7 +311,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
             try:
                 output = self._parse_model_output(
                     completion.choices[0].message,
-                    state.extra_args.tool_result_formatter.expand,
+                    state.config.tool_result_formatter.expand,
                 )
                 break
             except (InvalidModelOutputError, ASTParsingError) as e:

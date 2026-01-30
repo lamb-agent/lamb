@@ -3,15 +3,13 @@ import os
 import sys
 from pathlib import Path
 
-import agentdojo.agent_pipeline as pipeline
-import agentdojo.benchmark as bench
-import agentdojo.task_suite as task_suite
+from agentdojo import agent_pipeline as pipeline
+from agentdojo import benchmark as bench
+from agentdojo import task_suite
 from agentdojo.logging import OutputLogger
 from rich.logging import RichHandler
 
-import lamb.llm_wrapper as llm
-import lamb.tool_result as tool_result
-from lamb.types import Config
+from lamb import controller, llm, tool_exec, tool_result, types
 
 
 def main():
@@ -25,9 +23,13 @@ def main():
     except KeyError:
         logging.error("LAMB_CEREBRAS_API_KEY env var not set")
         sys.exit(1)
-    model = llm.gemma(
-        gemini_key,
-        Config(tool_result_formatter=tool_result.VariableFormatter()),
+    config = types.Config(
+        llm=llm.gemma(gemini_key),
+        tool_executor=tool_exec.default,
+        tool_result_formatter=tool_result.VariableFormatter(),
+    )
+    agent_loop = types.PipeElementWrapper(
+        init=controller.init(config), run=controller.loop
     )
     tools_pipeline = pipeline.AgentPipeline(
         [
@@ -35,7 +37,7 @@ def main():
                 "You are a helpful AI assistant with tool-calling capabilities."
             ),
             pipeline.InitQuery(),
-            model,
+            agent_loop,
         ]
     )
     # This is an inconsistency in AgentDojo.
