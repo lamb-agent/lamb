@@ -1,12 +1,11 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Callable
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 from agentdojo.types import ChatMessage
 
-from lamb import tool_result
+from lamb import tool_llm, tool_result
 
 type Transition = Callable[[State], State]
 """Go from one state to the next."""
@@ -21,6 +20,7 @@ class Config:
     llm: Transition
     tool_executor: Transition
     tool_result_formatter: tool_result.Formatter
+    tool_llm: tool_llm.ToolLlm | None
 
 
 @dataclass
@@ -38,27 +38,27 @@ class State:
 
 
 class PipeElementWrapper(pipeline.BasePipelineElement):
-    """Transforms a state transition function into an AgentDojo compatible BasePipelineElement."""
+    """Transforms a transition function into a BasePipelineElement."""
 
     init: Init
-    run: Transition
+    loop: Transition
 
-    def __init__(self, init: Init, run: Transition) -> None:
+    def __init__(self, init: Init, loop: Transition) -> None:
         self.init = init
-        self.run = run
+        self.loop = loop
 
     def query(
         self,
         query: str,
         runtime: rt.FunctionsRuntime,
-        env: rt.TaskEnvironment = rt.EmptyEnv(),
+        env: rt.TaskEnvironment = rt.EmptyEnv(),  # noqa: B008
         messages: Sequence[ChatMessage] = [],
-        extra_args: dict = {},  # we ignore extra_args
+        extra_args: dict = {},  # we ignore extra_args # noqa: B006
     ) -> tuple[
         str, rt.FunctionsRuntime, rt.TaskEnvironment, Sequence[ChatMessage], dict
     ]:
         initial_state = self.init(runtime, env, messages)
-        final_state = self.run(initial_state)
+        final_state = self.loop(initial_state)
         return (
             query,
             final_state.runtime,

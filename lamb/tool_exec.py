@@ -2,16 +2,17 @@
 from ast import literal_eval
 from dataclasses import replace
 
+import agentdojo.functions_runtime as rt
 from agentdojo.agent_pipeline.llms.google_llm import EMPTY_FUNCTION_NAME
 from agentdojo.types import (
     ChatToolResultMessage,
     text_content_block_from_string,
 )
 
-from lamb import types
+from lamb import tool_llm, types
 
 
-def is_string_list(s: str):
+def is_string_list(s: str) -> bool:
     try:
         parsed = literal_eval(s)
         return isinstance(parsed, list)
@@ -20,13 +21,16 @@ def is_string_list(s: str):
 
 
 def default(state: types.State) -> types.State:
-    """Executes the tool calls in the last messages for which tool execution is required.
+    """Execute the tool calls in the last messages for which tool execution is required.
 
     Args:
         state: the last state
-        tool_output_formatter: a function that converts a tool's output into plain text to be fed to the model.
-            It should take as argument the tool output, and convert it into a string. The default converter
+        tool_output_formatter: a function that converts a tool's output
+            into plain text to be fed to the model.
+            It should take as argument the tool output,
+            and convert it into a string. The default converter
             converts the output to structured YAML.
+
     """
 
     if len(state.messages) == 0:
@@ -46,7 +50,8 @@ def default(state: types.State) -> types.State:
                     content=[text_content_block_from_string("")],
                     tool_call_id=tool_call.id,
                     tool_call=tool_call,
-                    error="Empty function name provided. Provide a valid function name.",
+                    error="Empty function name provided. "
+                    + "Provide a valid function name.",
                 )
             )
             continue
@@ -86,3 +91,22 @@ def default(state: types.State) -> types.State:
             )
         )
     return replace(state, messages=[*state.messages, *tool_call_results])
+
+
+def query_llm(
+    tool_llm: rt.Annotated[tool_llm.ToolLlm, rt.Depends("tool_llm")],
+    prompt: str,
+) -> str:
+    """Query a different LLM.
+
+    You can use this tool to process the content of variables.
+    Variables, like <tool_result_1/>, given in the prompt are automatically expanded.
+    The result is always a string stored in a new variable.
+    You can use it for more tool calls or the final answer to the user.
+
+    :param prompt: The prompt to the LLM. May contain variables.
+    """
+
+    # TODO: Add retry mechanism, if the prompt provided does not have enough context.
+
+    return tool_llm.query(prompt)

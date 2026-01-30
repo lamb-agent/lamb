@@ -54,7 +54,7 @@ def _new_prompting_llm_openai(
     base_url: str,
     api_key: str,
 ) -> Transition:
-    """Instantiate prompting llm with openai client"""
+    """Instantiate prompting llm with openai client."""
 
     client = openai.OpenAI(
         base_url=base_url,
@@ -64,7 +64,7 @@ def _new_prompting_llm_openai(
     return _make_retry(llm.next)
 
 
-def _make_retry(llm: Transition):
+def _make_retry(llm: Transition) -> Transition:
     """Make the llm retry on rate limit exhaustion."""
 
     def retry(state: State, timeout: int = 30) -> State:
@@ -76,11 +76,11 @@ def _make_retry(llm: Transition):
         try:
             return llm(state)
         except openai.RateLimitError:
-            logging.error("Google API exhausted, waiting...")
+            logging.exception("Google API exhausted, waiting...")
             time.sleep(timeout)
             return retry(state)
         except openai.APIConnectionError:
-            logging.error("Failed to connect")
+            logging.exception("Failed to connect")
             sys.exit(1)
 
     return retry

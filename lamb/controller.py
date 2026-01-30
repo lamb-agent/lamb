@@ -1,11 +1,11 @@
 import logging
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 import agentdojo.functions_runtime as rt
 from agentdojo.types import ChatMessage
 
-from lamb import types
+from lamb import tool_exec, types
 
 
 def init(config: types.Config) -> types.Init:
@@ -13,7 +13,15 @@ def init(config: types.Config) -> types.Init:
         runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         messages: Sequence[ChatMessage],
-    ):
+    ) -> types.State:
+        runtime.register_function(tool_exec.query_llm)
+        # TODO: is there a better way with proper typing to edit the env?
+        if config.tool_llm:
+            object.__setattr__(
+                env,
+                "tool_llm",
+                config.tool_llm,
+            )
         return types.State(runtime, env, messages, config)
 
     return _init

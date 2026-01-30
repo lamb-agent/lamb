@@ -9,27 +9,31 @@ from agentdojo import task_suite
 from agentdojo.logging import OutputLogger
 from rich.logging import RichHandler
 
-from lamb import controller, llm, tool_exec, tool_result, types
+from lamb import controller, llm, tool_exec, tool_llm, tool_result, types
 
 
-def main():
+def main() -> None:
     try:
         gemini_key = os.environ["LAMB_GEMINI_API_KEY"]
     except KeyError:
-        logging.error("LAMB_GEMINI_API_KEY env var not set")
+        logging.exception("LAMB_GEMINI_API_KEY env var not set")
         sys.exit(1)
     try:
         cerebras_key = os.environ["LAMB_CEREBRAS_API_KEY"]
     except KeyError:
-        logging.error("LAMB_CEREBRAS_API_KEY env var not set")
+        logging.exception("LAMB_CEREBRAS_API_KEY env var not set")
         sys.exit(1)
+    model = llm.gemma(gemini_key)
+    # model=llm.cerebras(llm.CerebrasModel.GPT_OSS.value, cerebras_key),
+    # model=llm.local(llm.OllamaModel.GEMMA.value),
     config = types.Config(
-        llm=llm.gemma(gemini_key),
+        llm=model,
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.VariableFormatter(),
+        tool_llm=tool_llm.QuarantinedLlm(model),
     )
     agent_loop = types.PipeElementWrapper(
-        init=controller.init(config), run=controller.loop
+        init=controller.init(config), loop=controller.loop
     )
     tools_pipeline = pipeline.AgentPipeline(
         [
@@ -60,10 +64,10 @@ def main():
             print(f"Utility of {suite_name}: {utility}")
 
 
-def configure_logging():
-    format = "%(message)s"
+def configure_logging() -> None:
+    fmt = "%(message)s"
     logging.basicConfig(
-        format=format,
+        format=fmt,
         level=logging.INFO,
         datefmt="%H:%M:%S",
         handlers=[RichHandler(show_path=False, markup=True)],
