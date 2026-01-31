@@ -1,11 +1,12 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Protocol
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 from agentdojo.types import ChatMessage
 
-from lamb import tool_llm, tool_result
+from lamb import tool_result
 
 type Transition = Callable[[State], State]
 """Go from one state to the next."""
@@ -15,12 +16,16 @@ type Init = Callable[
 """Produce an initial state from the runtime, env and messages given by AgentDojo"""
 
 
+class ToolLlm(Protocol):
+    def query(self, prompt: str) -> str: ...
+
+
 @dataclass
 class Config:
     llm: Transition
     tool_executor: Transition
     tool_result_formatter: tool_result.Formatter
-    tool_llm: tool_llm.ToolLlm | None
+    tool_llm: ToolLlm | None
 
 
 @dataclass

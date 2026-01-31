@@ -1,5 +1,5 @@
+import typing
 from dataclasses import replace
-from typing import Protocol
 
 import agentdojo.functions_runtime as rt
 from agentdojo.logging import OutputLogger
@@ -8,15 +8,11 @@ from agentdojo.types import ChatUserMessage, text_content_block_from_string
 from lamb import tool_exec, tool_result, types
 
 
-class ToolLlm(Protocol):
-    def query(self, prompt: str) -> str: ...
-
-
 class QuarantinedLlm:
     initial_state: types.State
     loop: types.Transition
 
-    system_prompt: ChatUserMessage = {
+    SYSTEM_PROMPT: typing.Final[ChatUserMessage] = {
         "role": "user",
         "content": [
             text_content_block_from_string(
@@ -36,7 +32,7 @@ class QuarantinedLlm:
         self.initial_state = types.State(
             runtime=empty_runtime,
             env=rt.EmptyEnv(),
-            messages=[self.system_prompt],
+            messages=[self.SYSTEM_PROMPT],
             config=config,
         )
         self.loop = lambda state: state.next_llm()  # Only call the llm, no agent loop

@@ -9,7 +9,7 @@ from agentdojo.types import (
     text_content_block_from_string,
 )
 
-from lamb import tool_llm, types
+from lamb import types
 
 
 def is_string_list(s: str) -> bool:
@@ -94,7 +94,7 @@ def default(state: types.State) -> types.State:
 
 
 def query_llm(
-    tool_llm: rt.Annotated[tool_llm.ToolLlm, rt.Depends("tool_llm")],
+    tool_llm: rt.Annotated[types.ToolLlm, rt.Depends("tool_llm")],
     prompt: str,
 ) -> str:
     """Query a different LLM.
