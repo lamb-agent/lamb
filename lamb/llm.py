@@ -1,3 +1,4 @@
+from dataclasses import replace
 import logging
 import sys
 import time
@@ -18,6 +19,7 @@ class OllamaModel(Enum):
     MINISTRAL = "ministral-3:3b"
     MISTRAL = "mistral:7b"
     PHI = "phi3:3.8b"
+    GPT_OSS = "gpt-oss:20b"
 
 
 class CerebrasModel(Enum):
@@ -25,8 +27,16 @@ class CerebrasModel(Enum):
     LLAMA3 = "llama-3.3-70b"
 
 
-def local(model: str) -> Transition:
+def local_prompting(model: str) -> Transition:
     return _new_prompting_llm_openai(
+        model=model,
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",  # required, but unused
+    )
+
+
+def local(model: str) -> Transition:
+    return _new_openai(
         model=model,
         base_url="http://localhost:11434/v1",
         api_key="ollama",  # required, but unused
@@ -62,6 +72,28 @@ def _new_prompting_llm_openai(
     )
     llm = PromptingLLM(pipeline.OpenAILLM(client=client, model=model))
     return _make_retry(llm.next)
+
+
+def _new_openai(
+    model: str,
+    base_url: str,
+    api_key: str,
+) -> Transition:
+    """Instantiate tool-calling llm with openai client."""
+
+    client = openai.OpenAI(
+        base_url=base_url,
+        api_key=api_key,
+    )
+    llm = pipeline.OpenAILLM(client=client, model=model)
+
+    def llm_next(state: State) -> State:
+        _, runtime, env, messages, _ = llm.query(
+            "", state.runtime, state.env, state.messages, {}
+        )
+        return replace(state, runtime=runtime, env=env, messages=messages)
+
+    return _make_retry(llm_next)
 
 
 def _make_retry(llm: Transition) -> Transition:
