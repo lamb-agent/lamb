@@ -93,7 +93,7 @@ def default(state: types.State) -> types.State:
 
 
 def query_llm(
-    tool_llm: rt.Annotated[types.ToolLlm, rt.Depends("tool_llm")],
+    tool_llm: rt.Annotated[types.Query, rt.Depends("tool_llm")],
     prompt: str,
 ) -> str:
     """Query a different LLM.
@@ -108,4 +108,4 @@ def query_llm(
 
     # TODO: Add retry mechanism, if the prompt provided does not have enough context.
 
-    return tool_llm.query(prompt)
+    return tool_llm(prompt)

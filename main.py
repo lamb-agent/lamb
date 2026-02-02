@@ -30,7 +30,7 @@ def main() -> None:
         llm=model,
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.VariableFormatter(),
-        tool_llm=tool_llm.QuarantinedLlm(model),
+        tool_llm=tool_llm.bounded_llm,
     )
     agent_loop = types.PipeElementWrapper(
         init=controller.init(config), loop=controller.loop

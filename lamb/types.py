@@ -1,6 +1,5 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Protocol
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
@@ -14,10 +13,9 @@ type Init = Callable[
     [rt.FunctionsRuntime, rt.TaskEnvironment, Sequence[ChatMessage]], State
 ]
 """Produce an initial state from the runtime, env and messages given by AgentDojo"""
-
-
-class ToolLlm(Protocol):
-    def query(self, prompt: str) -> str: ...
+type Query = Callable[[str], str]
+"""Query an LLM or Agent with a prompt and get a response"""
+type ToolLLM = Callable[[Transition, rt.FunctionsRuntime, rt.TaskEnvironment], Query]
 
 
 @dataclass
@@ -25,7 +23,7 @@ class Config:
     llm: Transition
     tool_executor: Transition
     tool_result_formatter: tool_result.Formatter
-    tool_llm: ToolLlm | None
+    tool_llm: ToolLLM | None
 
 
 @dataclass

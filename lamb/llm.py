@@ -30,7 +30,7 @@ class CerebrasModel(Enum):
 def local_prompting(model: str) -> Transition:
     return _new_prompting_llm_openai(
         model=model,
-        base_url="http://localhost:11434/v1",
+        base_url="http://192.168.178.126:11434/v1",
         api_key="ollama",  # required, but unused
     )
 
@@ -38,7 +38,7 @@ def local_prompting(model: str) -> Transition:
 def local(model: str) -> Transition:
     return _new_openai(
         model=model,
-        base_url="http://localhost:11434/v1",
+        base_url="http://192.168.178.126:11434/v1",
         api_key="ollama",  # required, but unused
     )
 
