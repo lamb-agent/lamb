@@ -123,11 +123,11 @@ def _stringify_result(
             for item in val:
                 match item:
                     case int() | float() | bool() | None:
-                        res_items += str(item)
+                        res_items.append(str(item))
                     case str() | dict():
-                        res_items += item
+                        res_items.append(item)
                     case BaseModel():
-                        res_items += item.model_dump()
+                        res_items.append(item.model_dump())
                     case _:
                         raise TypeError(
                             f"Not valid type for item tool result: {type(item)}"
