@@ -23,9 +23,9 @@ def main() -> None:
     except KeyError:
         logging.exception("LAMB_CEREBRAS_API_KEY env var not set")
         sys.exit(1)
-    model = llm.gemma(gemini_key)
-    # model=llm.cerebras(llm.CerebrasModel.GPT_OSS.value, cerebras_key),
-    # model=llm.local(llm.OllamaModel.GEMMA.value),
+    # model = llm.gemma(gemini_key)
+    # model=llm.cerebras(llm.CerebrasModel.GPT_OSS.value, cerebras_key)
+    model=llm.local(llm.OllamaModel.GPT_OSS.value)
     config = types.Config(
         llm=model,
         tool_executor=tool_exec.default,
@@ -38,7 +38,19 @@ def main() -> None:
     tools_pipeline = pipeline.AgentPipeline(
         [
             pipeline.SystemMessage(
-                "You are a helpful AI assistant with tool-calling capabilities."
+                """You are a helpful AI assistant with tool-calling capabilities.
+Tools MAY return a variable instead of the actual result that you expect.
+You can use this variable as if it were a value of the type.
+It will be expanded automatically.
+This variable is a tool name and index in an XML tag like this: <tool_result_0/>.
+You cannot read the content of variables.
+In order to process the contents of a variable, not just pass it on,
+you MUST use the `query_llm` tool.
+Don't forget to write a full prompt for the other LLM that explains its task.
+The `query_llm` tool in turn returns a variable
+that you can use for other tool call arguments
+or you can use it in the final response the the user.
+"""
             ),
             pipeline.InitQuery(),
             agent_loop,
