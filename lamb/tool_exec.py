@@ -25,11 +25,6 @@ def default(state: types.State) -> types.State:
 
     Args:
         state: the last state
-        tool_output_formatter: a function that converts a tool's output
-            into plain text to be fed to the model.
-            It should take as argument the tool output,
-            and convert it into a string. The default converter
-            converts the output to structured YAML.
 
     """
 
@@ -74,8 +69,12 @@ def default(state: types.State) -> types.State:
             if isinstance(arg_v, str) and is_string_list(arg_v):
                 tool_call.args[arg_k] = literal_eval(arg_v)
 
+        args = {
+            key: state.config.tool_result_formatter.expand(value)
+            for key, value in tool_call.args.items()
+        }
         tool_call_result, error = state.runtime.run_function(
-            state.env, tool_call.function, tool_call.args
+            state.env, tool_call.function, args
         )
         tool_call_id = tool_call.id
         formatted_tool_call_result = state.config.tool_result_formatter.format(

@@ -183,7 +183,6 @@ If you think you will need to call multiple tools in multiple stages, but you do
     def _parse_model_output(
         self,
         message: ChatCompletionMessage,
-        expand_vars: Callable[[rt.FunctionCallArgTypes], rt.FunctionCallArgTypes],
     ) -> ChatAssistantMessage:
         """Parse the model output by extracting text and/or tool call contents from the message.
 
@@ -200,7 +199,6 @@ If you think you will need to call multiple tools in multiple stages, but you do
 
         Args:
             message: The model output message in OpenAI format.
-            expand_vars: Function to expand variables in tool call args
 
         Returns:
             The assistant message with the extracted text and tool calls.
@@ -235,7 +233,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
         tool_calls = parse_tool_calls_from_python_function(tool_call_content)
         for tool_call in tool_calls:
             args = {
-                arg_name: ("..." if arg_value == Ellipsis else expand_vars(arg_value))
+                arg_name: ("..." if arg_value == Ellipsis else arg_value)
                 for arg_name, arg_value in tool_call.args.items()
             }
             tool_call.args = args
@@ -331,10 +329,7 @@ If you think you will need to call multiple tools in multiple stages, but you do
             return replace(state, messages=[*state.messages, output])
         for _ in range(self._MAX_ATTEMPTS):
             try:
-                output = self._parse_model_output(
-                    completion.choices[0].message,
-                    state.config.tool_result_formatter.expand,
-                )
+                output = self._parse_model_output(completion.choices[0].message)
                 break
             except (InvalidModelOutputError, ASTParsingError) as e:
                 error_message = ChatUserMessage(
