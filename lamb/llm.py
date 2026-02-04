@@ -1,7 +1,7 @@
-from dataclasses import replace
 import logging
 import sys
 import time
+from dataclasses import replace
 from enum import Enum
 
 import agentdojo.agent_pipeline as pipeline
@@ -12,14 +12,13 @@ from lamb.types import State, Transition
 
 
 class OllamaModel(Enum):
-    DEEPSEEK = "deepseek-r1:1.5b"
-    FUNCTIONGEMMA = "functiongemma:latest"
-    GEMMA = "gemma3:4b"
-    LLAMA3 = "llama3.2:3b"
+    GPT_OSS_20B = "gpt-oss:20b"
+    GPT_OSS_120B = "gpt-oss:120b"
+    LLAMA3_3_70B = "llama3.3:70b"
+    LLAMA4_16X17B = "llama4:16x17b"
     MINISTRAL = "ministral-3:3b"
     MISTRAL = "mistral:7b"
-    PHI = "phi3:3.8b"
-    GPT_OSS = "gpt-oss:20b"
+    MISTRAL_LARGE_123B = "mistral-large:123b"
 
 
 class CerebrasModel(Enum):
@@ -27,18 +26,18 @@ class CerebrasModel(Enum):
     LLAMA3 = "llama-3.3-70b"
 
 
-def local_prompting(model: str) -> Transition:
+def local_prompting(model: OllamaModel) -> Transition:
     return _new_prompting_llm_openai(
-        model=model,
-        base_url="http://192.168.178.126:11434/v1",
+        model=model.value,
+        base_url="http://localhost:11434/v1",
         api_key="ollama",  # required, but unused
     )
 
 
-def local(model: str) -> Transition:
+def local(model: OllamaModel) -> Transition:
     return _new_openai(
-        model=model,
-        base_url="http://192.168.178.126:11434/v1",
+        model=model.value,
+        base_url="http://localhost:11434/v1",
         api_key="ollama",  # required, but unused
     )
 
@@ -51,9 +50,9 @@ def gemma(api_key: str) -> Transition:
     )
 
 
-def cerebras(model: str, api_key: str) -> Transition:
+def cerebras(model: CerebrasModel, api_key: str) -> Transition:
     return _new_prompting_llm_openai(
-        model=model,
+        model=model.value,
         base_url="https://api.cerebras.ai/v1",
         api_key=api_key,
     )
