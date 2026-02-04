@@ -43,9 +43,9 @@ Tools MAY return a variable instead of the actual result that you expect.
 You can use this variable as if it were a value of the type.
 It will be expanded automatically.
 This variable is a tool name and index in an XML tag like this: <tool_result_0/>.
-You cannot read the content of variables, but they contain the values you expect.
+You CANNOT read the content of variables, but they contain the values you expect.
 Work with them as if you had the real result.
-This is NOT a bug. The tools work file. This is what you expect.
+This is NOT a bug. The tools work fine. This is what you expect.
 Do NOT call a tool multiple times because it returns a variable that you can't read.
 In order to process the contents of a variable, not just pass it on,
 you MUST use the `query_llm` tool.
