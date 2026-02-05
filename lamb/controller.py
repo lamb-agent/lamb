@@ -1,13 +1,11 @@
-import logging
 import sys
 from collections.abc import Sequence
 
 import agentdojo.functions_runtime as rt
+import agentdojo.logging as log
 from agentdojo.types import (
     ChatAssistantMessage,
     ChatMessage,
-    ChatUserMessage,
-    MessageContentBlock,
     TextContentBlock,
 )
 
@@ -15,6 +13,8 @@ from lamb import tool_exec, types
 
 
 def init(config: types.Config) -> types.Init:
+    system_prompt = types.make_user_prompt(config.system_prompt)
+
     def _init(
         runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
@@ -28,7 +28,7 @@ def init(config: types.Config) -> types.Init:
                 "tool_llm",
                 config.tool_llm(config.llm, runtime, env),
             )
-        return types.State(runtime, env, messages, config)
+        return types.State(runtime, env, [system_prompt, *messages], config)
 
     return _init
 
@@ -71,7 +71,8 @@ def loop(
         case {"role": "assistant"}:
             return state
         case _:
-            logging.error(f"Illegal message role: {last_message['role']}")
+            logger = log.Logger.get()
+            logger.log_error(f"Illegal message role: {last_message['role']}")
             sys.exit(1)
     assert len(next_state.messages) > nr_messages, "LLM must populate messages"
     return loop(next_state, max_iters=max_iters - 1)

@@ -84,7 +84,7 @@ def _new_openai(
         base_url=base_url,
         api_key=api_key,
     )
-    llm = pipeline.OpenAILLM(client=client, model=model)
+    llm = pipeline.OpenAILLM(client=client, model=model, reasoning_effort="high")
 
     def llm_next(state: State) -> State:
         _, runtime, env, messages, _ = llm.query(

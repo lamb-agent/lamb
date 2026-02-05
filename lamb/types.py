@@ -3,14 +3,14 @@ from dataclasses import dataclass
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
-from agentdojo.types import ChatMessage
+import agentdojo.types as ad_types
 
 from lamb import tool_result
 
 type Transition = Callable[[State], State]
 """Go from one state to the next."""
 type Init = Callable[
-    [rt.FunctionsRuntime, rt.TaskEnvironment, Sequence[ChatMessage]], State
+    [rt.FunctionsRuntime, rt.TaskEnvironment, Sequence[ad_types.ChatMessage]], State
 ]
 """Produce an initial state from the runtime, env and messages given by AgentDojo"""
 type Query = Callable[[str], str]
@@ -20,6 +20,7 @@ type ToolLLM = Callable[[Transition, rt.FunctionsRuntime, rt.TaskEnvironment], Q
 
 @dataclass
 class Config:
+    system_prompt: str
     llm: Transition
     tool_executor: Transition
     tool_result_formatter: tool_result.Formatter
@@ -30,7 +31,7 @@ class Config:
 class State:
     runtime: rt.FunctionsRuntime
     env: rt.TaskEnvironment
-    messages: Sequence[ChatMessage]
+    messages: Sequence[ad_types.ChatMessage]
     config: Config
 
     def next_llm(self) -> "State":
@@ -55,10 +56,14 @@ class PipeElementWrapper(pipeline.BasePipelineElement):
         query: str,
         runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment = rt.EmptyEnv(),  # noqa: B008
-        messages: Sequence[ChatMessage] = [],
+        messages: Sequence[ad_types.ChatMessage] = [],
         extra_args: dict = {},  # we ignore extra_args # noqa: B006
     ) -> tuple[
-        str, rt.FunctionsRuntime, rt.TaskEnvironment, Sequence[ChatMessage], dict
+        str,
+        rt.FunctionsRuntime,
+        rt.TaskEnvironment,
+        Sequence[ad_types.ChatMessage],
+        dict,
     ]:
         initial_state = self.init(runtime, env, messages)
         final_state = self.loop(initial_state)
@@ -69,3 +74,10 @@ class PipeElementWrapper(pipeline.BasePipelineElement):
             final_state.messages,
             extra_args,
         )
+
+
+def make_user_prompt(prompt: str) -> ad_types.ChatMessage:
+    return {
+        "role": "user",
+        "content": [ad_types.text_content_block_from_string(prompt)],
+    }

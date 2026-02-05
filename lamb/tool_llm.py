@@ -2,10 +2,8 @@ from collections.abc import Callable
 from dataclasses import replace
 
 import agentdojo.functions_runtime as rt
-from agentdojo.logging import OutputLogger
-from agentdojo.types import ChatUserMessage, text_content_block_from_string
 
-from lamb import controller, tool_exec, tool_result, types
+from lamb import controller, prompts, tool_exec, tool_result, types
 
 
 def quarantined_llm(
@@ -15,17 +13,10 @@ def quarantined_llm(
 ) -> types.Query:
     """Create Q-LLM query function with no tool-calling abilities."""
 
-    system_prompt: ChatUserMessage = {
-        "role": "user",
-        "content": [
-            text_content_block_from_string(
-                "You are a helpful AI assistant. No tools are at your disposal."
-            )
-        ],
-    }
     empty_runtime = rt.FunctionsRuntime([])
     config = types.Config(
         llm=llm,
+        system_prompt=prompts.Q_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.BasicFormatter(),  # No variables
         tool_llm=None,
@@ -33,7 +24,7 @@ def quarantined_llm(
     initial_state = types.State(
         runtime=empty_runtime,
         env=rt.EmptyEnv(),
-        messages=[system_prompt],
+        messages=[types.make_user_prompt(config.system_prompt)],
         config=config,
     )
 
@@ -50,12 +41,9 @@ def bounded_llm(
 ) -> types.Query:
     """Create B-LLM query function with tool-calling abilities."""
 
-    system_prompt: ChatUserMessage = {
-        "role": "user",
-        "content": [text_content_block_from_string("You are a helpful AI assistant.")],
-    }
     config = types.Config(
         llm=llm,
+        system_prompt=prompts.B_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.BasicFormatter(),  # No variables
         tool_llm=None,
@@ -64,7 +52,7 @@ def bounded_llm(
     initial_state = init_fn(
         runtime,
         env,
-        [system_prompt],
+        [],
     )
     return _make_query(initial_state, controller.loop)
 
@@ -79,10 +67,7 @@ def _make_query(
         The LLM is stateless, i.e. the message history is not preserved.
         """
 
-        user_prompt: ChatUserMessage = {
-            "role": "user",
-            "content": [text_content_block_from_string(prompt)],
-        }
+        user_prompt = types.make_user_prompt(prompt)
         state = replace(initial_state, messages=[*initial_state.messages, user_prompt])
         final_state = loop(state)
         assert len(final_state.messages) >= 3, "LLM must have added a final message"
@@ -94,8 +79,6 @@ def _make_query(
             last_message["content"] is not None and len(last_message["content"]) >= 1
         ), "Assistant message must have content"
         result = last_message["content"][0]["content"]
-        with OutputLogger(None, None) as logger:
-            logger.log(list(final_state.messages))
         return result
 
     return query
