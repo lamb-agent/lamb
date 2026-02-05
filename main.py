@@ -25,7 +25,7 @@ def main() -> None:
         sys.exit(1)
     # model = llm.gemma(gemini_key)
     # model=llm.cerebras(llm.CerebrasModel.GPT_OSS, cerebras_key)
-    model = llm.local(llm.OllamaModel.GPT_OSS_120B)
+    model = llm.local(llm.OllamaModel.GRANITE4)
     config = types.Config(
         llm=model,
         system_prompt=prompts.P_LLM_SYSTEM_PROMPT,

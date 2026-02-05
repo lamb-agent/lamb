@@ -19,6 +19,7 @@ class OllamaModel(Enum):
     MINISTRAL = "ministral-3:3b"
     MISTRAL = "mistral:7b"
     MISTRAL_LARGE_123B = "mistral-large:123b"
+    GRANITE4 = "granite4:3b"
 
 
 class CerebrasModel(Enum):
