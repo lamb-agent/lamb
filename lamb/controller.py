@@ -3,7 +3,13 @@ import sys
 from collections.abc import Sequence
 
 import agentdojo.functions_runtime as rt
-from agentdojo.types import ChatMessage
+from agentdojo.types import (
+    ChatAssistantMessage,
+    ChatMessage,
+    ChatUserMessage,
+    MessageContentBlock,
+    TextContentBlock,
+)
 
 from lamb import tool_exec, types
 
@@ -29,8 +35,21 @@ def init(config: types.Config) -> types.Init:
 
 def loop(
     state: types.State,
-    max_iters: int = 25,
+    max_iters: int = 20,
 ) -> types.State:
+    # Prevent infinite loops
+    if max_iters <= 0:
+        ChatAssistantMessage(
+            role="assistant",
+            content=[
+                TextContentBlock(
+                    type="text",
+                    content="Unfortunately, I failed to fulfill your request",
+                )
+            ],
+            tool_calls=[],
+        )
+        return state
     nr_messages = len(state.messages)
     assert nr_messages >= 2, (
         "There must be at least the system message and the initial prompt"
