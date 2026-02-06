@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 import agentdojo.types as ad_types
+from openai.types.chat.completion_create_params import ResponseFormat
+from openai.types.shared_params import ResponseFormatJSONSchema, ResponseFormatText
 
 from lamb import tool_result
 
@@ -13,9 +15,13 @@ type Init = Callable[
     [rt.FunctionsRuntime, rt.TaskEnvironment, Sequence[ad_types.ChatMessage]], State
 ]
 """Produce an initial state from the runtime, env and messages given by AgentDojo"""
-type Query = Callable[[str], str]
+type StructuredQuery = Callable[[str, dict], dict]
+type TextQuery = Callable[[str], str]
+type Query = TextQuery | StructuredQuery
 """Query an LLM or Agent with a prompt and get a response"""
 type ToolLLM = Callable[[Transition, rt.FunctionsRuntime, rt.TaskEnvironment], Query]
+
+TEXT_FORMAT: ResponseFormatText = {"type": "text"}
 
 
 @dataclass
@@ -33,6 +39,7 @@ class State:
     env: rt.TaskEnvironment
     messages: Sequence[ad_types.ChatMessage]
     config: Config
+    response_format: ResponseFormat
 
     def next_llm(self) -> "State":
         return self.config.llm(self)

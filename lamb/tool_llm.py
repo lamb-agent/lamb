@@ -1,9 +1,11 @@
-from collections.abc import Callable
-from dataclasses import replace
+import json
+import jsonschema
 import typing
+from dataclasses import replace
 
 import agentdojo.functions_runtime as rt
-import agentdojo.logging as logging
+from agentdojo import logging
+from openai.types.chat.completion_create_params import ResponseFormat
 
 from lamb import controller, prompts, tool_exec, tool_result, types
 
@@ -28,6 +30,7 @@ def quarantined_llm(
         env=rt.EmptyEnv(),
         messages=[types.make_user_prompt(config.system_prompt)],
         config=config,
+        response_format=types.TEXT_FORMAT,  # Is overwritten by query call anyway
     )
 
     def loop(state: types.State) -> types.State:
@@ -62,15 +65,37 @@ def bounded_llm(
 def _make_query(
     initial_state: types.State,
     loop: types.Transition,
-) -> Callable[[str], str]:
-    def query(prompt: str) -> str:
+) -> types.Query:
+    @typing.overload
+    def query(prompt: str) -> str: ...
+    @typing.overload
+    def query(prompt: str, schema: dict) -> dict: ...
+    def query(
+        prompt: str,
+        schema: dict | None = None,
+    ) -> str | dict:
         """Query the LLM with the given prompt.
 
         The LLM is stateless, i.e. the message history is not preserved.
         """
 
         user_prompt = types.make_user_prompt(prompt)
-        state = replace(initial_state, messages=[*initial_state.messages, user_prompt])
+        response_format: ResponseFormat = types.TEXT_FORMAT
+        if schema:
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "Structured output schema",
+                    "description": "You must conform to this output in your final answer to the user.",
+                    "schema": schema,
+                    "strict": True,
+                },
+            }
+        state = replace(
+            initial_state,
+            messages=[*initial_state.messages, user_prompt],
+            response_format=response_format,
+        )
         final_state = loop(state)
         assert len(final_state.messages) >= 3, "LLM must have added a final message"
         last_message = final_state.messages[-1]
@@ -81,6 +106,10 @@ def _make_query(
             last_message["content"] is not None and len(last_message["content"]) >= 1
         ), "Assistant message must have content"
         result = last_message["content"][0]["content"]
+        if schema:
+            result_dict = json.loads(result)
+            jsonschema.validate(result_dict, schema)
+            result = result_dict
 
         # We know that at runtime, AD uses the tracelogger
         # and we have to override the delegate's messages

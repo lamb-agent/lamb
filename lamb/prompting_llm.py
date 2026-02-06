@@ -1,12 +1,11 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/llms/prompting_llm.py
 import json
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import replace
 
 import agentdojo.functions_runtime as rt
 from agentdojo.agent_pipeline.llms.openai_llm import (
-    OpenAILLM,
     _message_to_openai,
     _tool_call_to_openai,
     chat_completion_request,
@@ -35,6 +34,7 @@ from openai.types.chat import (
 )
 
 from lamb import types
+from lamb.openai_llm import OpenAILLM
 
 
 class InvalidModelOutputError(Exception): ...

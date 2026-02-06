@@ -23,12 +23,19 @@ def init(config: types.Config) -> types.Init:
         # TODO: is there a better way with proper typing to edit the env?
         if config.tool_llm:
             runtime.register_function(tools.query_llm)
+            runtime.register_function(tools.query_llm_structured)
             object.__setattr__(
                 env,
                 "tool_llm",
                 config.tool_llm(config.llm, runtime, env),
             )
-        return types.State(runtime, env, [system_prompt, *messages], config)
+        return types.State(
+            runtime,
+            env,
+            [system_prompt, *messages],
+            config,
+            types.TEXT_FORMAT,
+        )
 
     return _init
 

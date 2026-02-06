@@ -4,12 +4,12 @@ import time
 from dataclasses import replace
 from enum import Enum
 
-import agentdojo.agent_pipeline as pipeline
 import openai
 import openai.types.chat as openai_types
 
 from lamb import types
 from lamb.prompting_llm import PromptingLLM
+from lamb.openai_llm import OpenAILLM
 
 
 class OllamaModel(Enum):
@@ -75,7 +75,7 @@ def _new_prompting_llm_openai(
         base_url=base_url,
         api_key=api_key,
     )
-    llm = PromptingLLM(pipeline.OpenAILLM(client=client, model=model))
+    llm = PromptingLLM(OpenAILLM(client=client, model=model))
     return _make_retry(llm.next)
 
 
@@ -91,7 +91,7 @@ def _new_openai(
         base_url=base_url,
         api_key=api_key,
     )
-    llm = pipeline.OpenAILLM(
+    llm = OpenAILLM(
         client=client,
         model=model,
         reasoning_effort=thinking,
@@ -99,7 +99,11 @@ def _new_openai(
 
     def llm_next(state: types.State) -> types.State:
         _, runtime, env, messages, _ = llm.query(
-            "", state.runtime, state.env, state.messages, {}
+            "",
+            state.runtime,
+            state.env,
+            state.messages,
+            {"response_format": state.response_format},
         )
         return replace(state, runtime=runtime, env=env, messages=messages)
 
