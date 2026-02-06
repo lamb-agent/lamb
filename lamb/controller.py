@@ -76,6 +76,10 @@ def loop(
             next_state = tool_state.next_llm()
         # assistant finished without calling tools
         case {"role": "assistant"}:
+            # clean up env again
+            # this is required for passing the utility checks
+            if state.config.tool_llm:
+                object.__delattr__(state.env, "tool_llm")
             return state
         case _:
             logger = log.Logger.get()
