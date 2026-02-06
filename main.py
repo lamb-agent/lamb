@@ -25,7 +25,7 @@ def main() -> None:
         sys.exit(1)
     # model = llm.gemma(gemini_key)
     # model=llm.cerebras(llm.CerebrasModel.GPT_OSS, cerebras_key)
-    model = llm.local(llm.OllamaModel.GPT_OSS_120B, thinking="high")
+    model = llm.local(llm.OllamaModel.GPT_OSS_120B, thinking="medium")
     config = types.Config(
         llm=model,
         system_prompt=prompts.P_LLM_SYSTEM_PROMPT,
@@ -50,8 +50,9 @@ def main() -> None:
     suites = task_suite.get_suites("v1.2")
     with OutputLogger(None, None):
         for suite_name, suite in suites.items():
-            if suite_name != "slack":
+            if suite_name != "travel":
                 continue
+            retain_tasks(suite, ["user_task_0"])
             results = bench.benchmark_suite_without_injections(
                 suite=suite,
                 agent_pipeline=tools_pipeline,
@@ -60,6 +61,20 @@ def main() -> None:
             )
             utility = bench.aggregate_results([results["utility_results"]])
             print(f"Utility of {suite_name}: {utility}")
+
+def retain_tasks(suite: task_suite.TaskSuite, task_names: list[str]) -> None:
+    # ruff: disable[SLF001]
+    suite._user_tasks = {
+        task_name: task
+        for task_name, task in suite._user_tasks.items()
+        if task_name in task_names
+    }
+    suite._injection_tasks = {
+        task_name: task
+        for task_name, task in suite._injection_tasks.items()
+        if task_name in task_names
+    }
+    # ruff: enable[SLF001]
 
 
 def configure_logging() -> None:
