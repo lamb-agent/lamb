@@ -1,7 +1,9 @@
 from collections.abc import Callable
 from dataclasses import replace
+import typing
 
 import agentdojo.functions_runtime as rt
+import agentdojo.logging as logging
 
 from lamb import controller, prompts, tool_exec, tool_result, types
 
@@ -79,6 +81,25 @@ def _make_query(
             last_message["content"] is not None and len(last_message["content"]) >= 1
         ), "Assistant message must have content"
         result = last_message["content"][0]["content"]
+
+        # We know that at runtime, AD uses the tracelogger
+        # and we have to override the delegate's messages
+        # to manipulate the message logging.
+        # TODO: This is very hacky. Find a better way. Maybe custom logging.
+        logger = typing.cast("logging.TraceLogger", logging.Logger.get())
+
+        # save old logger state
+        old_pipeline_name = logger.context["pipeline_name"]
+        old_messages = logger.delegate.messages
+
+        logger.context["pipeline_name"] = "lamb_sub_llm"
+        logger.delegate.messages = []
+        logger.log(list(final_state.messages))
+
+        # reset to old logger state
+        logger.context["pipeline_name"] = old_pipeline_name
+        logger.delegate.messages = old_messages
+
         return result
 
     return query
