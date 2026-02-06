@@ -6,9 +6,10 @@ from enum import Enum
 
 import agentdojo.agent_pipeline as pipeline
 import openai
+import openai.types.chat as openai_types
 
+from lamb import types
 from lamb.prompting_llm import PromptingLLM
-from lamb.types import State, Transition
 
 
 class OllamaModel(Enum):
@@ -27,7 +28,7 @@ class CerebrasModel(Enum):
     LLAMA3 = "llama-3.3-70b"
 
 
-def local_prompting(model: OllamaModel) -> Transition:
+def local_prompting(model: OllamaModel) -> types.Transition:
     return _new_prompting_llm_openai(
         model=model.value,
         base_url="http://localhost:11434/v1",
@@ -35,15 +36,19 @@ def local_prompting(model: OllamaModel) -> Transition:
     )
 
 
-def local(model: OllamaModel) -> Transition:
+def local(
+    model: OllamaModel,
+    thinking: openai_types.ChatCompletionReasoningEffort = None,
+) -> types.Transition:
     return _new_openai(
         model=model.value,
         base_url="http://localhost:11434/v1",
         api_key="ollama",  # required, but unused
+        thinking=thinking,
     )
 
 
-def gemma(api_key: str) -> Transition:
+def gemma(api_key: str) -> types.Transition:
     return _new_prompting_llm_openai(
         model="gemma-3-27b-it",
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
@@ -51,7 +56,7 @@ def gemma(api_key: str) -> Transition:
     )
 
 
-def cerebras(model: CerebrasModel, api_key: str) -> Transition:
+def cerebras(model: CerebrasModel, api_key: str) -> types.Transition:
     return _new_prompting_llm_openai(
         model=model.value,
         base_url="https://api.cerebras.ai/v1",
@@ -63,7 +68,7 @@ def _new_prompting_llm_openai(
     model: str,
     base_url: str,
     api_key: str,
-) -> Transition:
+) -> types.Transition:
     """Instantiate prompting llm with openai client."""
 
     client = openai.OpenAI(
@@ -78,16 +83,21 @@ def _new_openai(
     model: str,
     base_url: str,
     api_key: str,
-) -> Transition:
+    thinking: openai_types.ChatCompletionReasoningEffort,
+) -> types.Transition:
     """Instantiate tool-calling llm with openai client."""
 
     client = openai.OpenAI(
         base_url=base_url,
         api_key=api_key,
     )
-    llm = pipeline.OpenAILLM(client=client, model=model, reasoning_effort="high")
+    llm = pipeline.OpenAILLM(
+        client=client,
+        model=model,
+        reasoning_effort=thinking,
+    )
 
-    def llm_next(state: State) -> State:
+    def llm_next(state: types.State) -> types.State:
         _, runtime, env, messages, _ = llm.query(
             "", state.runtime, state.env, state.messages, {}
         )
@@ -96,10 +106,10 @@ def _new_openai(
     return _make_retry(llm_next)
 
 
-def _make_retry(llm: Transition) -> Transition:
+def _make_retry(llm: types.Transition) -> types.Transition:
     """Make the llm retry on rate limit exhaustion."""
 
-    def retry(state: State, timeout: int = 30) -> State:
+    def retry(state: types.State, timeout: int = 30) -> types.State:
         """Retries calling the llm if rate limit is exceeded.
 
         Fails gracefully, if connection couldn't be established.
