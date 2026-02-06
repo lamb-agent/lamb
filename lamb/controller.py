@@ -9,7 +9,7 @@ from agentdojo.types import (
     TextContentBlock,
 )
 
-from lamb import tool_exec, types
+from lamb import tools, types
 
 
 def init(config: types.Config) -> types.Init:
@@ -20,9 +20,9 @@ def init(config: types.Config) -> types.Init:
         env: rt.TaskEnvironment,
         messages: Sequence[ChatMessage],
     ) -> types.State:
-        runtime.register_function(tool_exec.query_llm)
         # TODO: is there a better way with proper typing to edit the env?
         if config.tool_llm:
+            runtime.register_function(tools.query_llm)
             object.__setattr__(
                 env,
                 "tool_llm",
