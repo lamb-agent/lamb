@@ -107,6 +107,7 @@ def _make_query(
         ), "Assistant message must have content"
         result = last_message["content"][0]["content"]
         if schema:
+            # TODO: catch errors and prevent them from leaking sensitive information
             result_dict = json.loads(result)
             jsonschema.validate(result_dict, schema)
             result = result_dict
