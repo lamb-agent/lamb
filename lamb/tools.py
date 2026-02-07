@@ -1,7 +1,4 @@
 import agentdojo.functions_runtime as rt
-from openai.types.shared_params.response_format_json_schema import (
-    ResponseFormatJSONSchema,
-)
 
 from lamb import types
 

@@ -33,7 +33,7 @@ def main() -> None:
         tool_result_formatter=tool_result.VariableFormatter(),
         tool_llm=tool_llm.quarantined_llm,
     )
-    agent_loop = types.PipeElementWrapper(
+    agent_loop = types.ADAgentLoop(
         init=controller.init(config), loop=controller.loop
     )
     tools_pipeline = pipeline.AgentPipeline(

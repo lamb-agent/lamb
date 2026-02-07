@@ -45,6 +45,8 @@ from tenacity import (
     wait_random_exponential,
 )
 
+import lamb.types
+
 
 def _tool_call_to_openai(tool_call: FunctionCall) -> ChatCompletionMessageToolCallParam:
     if tool_call.id is None:
@@ -244,7 +246,7 @@ class OpenAILLM(BasePipelineElement):
             openai_messages,
             openai_tools,
             self.reasoning_effort,
-            extra_args.get("response_format", {"type": "text"}),
+            extra_args.get("response_format", lamb.types.TEXT_FORMAT),
             self.temperature,
         )
         output = _openai_to_assistant_message(completion.choices[0].message)

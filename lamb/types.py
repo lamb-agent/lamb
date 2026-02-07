@@ -5,7 +5,7 @@ import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 import agentdojo.types as ad_types
 from openai.types.chat.completion_create_params import ResponseFormat
-from openai.types.shared_params import ResponseFormatJSONSchema, ResponseFormatText
+from openai.types.shared_params import ResponseFormatText
 
 from lamb import tool_result
 
@@ -48,7 +48,7 @@ class State:
         return self.config.tool_executor(self)
 
 
-class PipeElementWrapper(pipeline.BasePipelineElement):
+class ADAgentLoop(pipeline.BasePipelineElement):
     """Transforms a transition function into a BasePipelineElement."""
 
     init: Init

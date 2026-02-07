@@ -1,13 +1,15 @@
 import json
-import jsonschema
 import typing
 from dataclasses import replace
 
 import agentdojo.functions_runtime as rt
+import jsonschema
 from agentdojo import logging
-from openai.types.chat.completion_create_params import ResponseFormat
 
 from lamb import controller, prompts, tool_exec, tool_result, types
+
+if typing.TYPE_CHECKING:
+    from openai.types.chat.completion_create_params import ResponseFormat
 
 
 def quarantined_llm(
