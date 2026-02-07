@@ -19,7 +19,7 @@ type StructuredQuery = Callable[[str, dict], dict]
 type TextQuery = Callable[[str], str]
 type Query = TextQuery | StructuredQuery
 """Query an LLM or Agent with a prompt and get a response"""
-type ToolLLM = Callable[[Transition, rt.FunctionsRuntime, rt.TaskEnvironment], Query]
+type ToolLLM = Callable[[Transition, set[Callable], rt.TaskEnvironment], Query]
 
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
 
@@ -31,6 +31,7 @@ class Config:
     tool_executor: Transition
     tool_result_formatter: tool_result.Formatter
     tool_llm: ToolLLM | None
+    read_only_tools: set[Callable]
 
 
 @dataclass

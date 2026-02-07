@@ -27,8 +27,6 @@ def main() -> None:
     suites = task_suite.get_suites("v1.2")
     with OutputLogger(None, None):
         for suite_name, suite in suites.items():
-            if suite_name != "banking":
-                continue
             # retain_tasks(suite, ["user_task_0"])
             lamb_pipeline = create_pipeline(suite)
             results = bench.benchmark_suite_without_injections(
@@ -42,9 +40,9 @@ def main() -> None:
 
 
 def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement:
-    untrusted_fns = {tools.query_llm} | (
-        tool_categories.UNTRUSTED & {tool.run for tool in suite.tools}
-    )
+    suite_tools = {tool.run for tool in suite.tools}
+    untrusted_fns = {tools.query_llm} | (tool_categories.UNTRUSTED & suite_tools)
+    read_only_fns = tool_categories.READ_ONLY & suite_tools
 
     def is_untrusted(fn: typing.Callable) -> bool:
         return fn in untrusted_fns
@@ -67,7 +65,8 @@ def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement
         system_prompt=prompts.P_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.VariableFormatter(hide_result=is_untrusted),
-        tool_llm=tool_llm.quarantined_llm,
+        tool_llm=tool_llm.bounded_llm,
+        read_only_tools=read_only_fns,
     )
     agent_loop = types.ADAgentLoop(init=controller.init(config), loop=controller.loop)
     lamb_pipeline = pipeline.AgentPipeline(

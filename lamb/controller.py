@@ -27,7 +27,7 @@ def init(config: types.Config) -> types.Init:
             object.__setattr__(
                 env,
                 "tool_llm",
-                config.tool_llm(config.llm, runtime, env),
+                config.tool_llm(config.llm, config.read_only_tools, env),
             )
         return types.State(
             runtime,

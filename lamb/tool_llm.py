@@ -14,7 +14,7 @@ if typing.TYPE_CHECKING:
 
 def quarantined_llm(
     llm: types.Transition,
-    runtime: rt.FunctionsRuntime,
+    read_only_fns: set[typing.Callable],
     env: rt.TaskEnvironment,
 ) -> types.Query:
     """Create Q-LLM query function with no tool-calling abilities."""
@@ -26,6 +26,7 @@ def quarantined_llm(
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.BasicFormatter(),  # No variables
         tool_llm=None,
+        read_only_tools=set(),
     )
     initial_state = types.State(
         runtime=empty_runtime,
@@ -43,7 +44,7 @@ def quarantined_llm(
 
 def bounded_llm(
     llm: types.Transition,
-    runtime: rt.FunctionsRuntime,
+    read_only_fns: set[typing.Callable],
     env: rt.TaskEnvironment,
 ) -> types.Query:
     """Create B-LLM query function with tool-calling abilities."""
@@ -54,12 +55,16 @@ def bounded_llm(
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.BasicFormatter(),  # No variables
         tool_llm=None,
+        read_only_tools=set(),
+    )
+    runtime = rt.FunctionsRuntime(
+        [rt.make_function(fn) for fn in read_only_fns]
     )
     init_fn = controller.init(config)
     initial_state = init_fn(
         runtime,
         env,
-        [],
+        [types.make_user_prompt(config.system_prompt)],
     )
     return _make_query(initial_state, controller.loop)
 
