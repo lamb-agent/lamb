@@ -77,7 +77,7 @@ def default(state: types.State) -> types.State:
         )
         tool_call_id = tool_call.id
         formatted_tool_call_result = state.config.tool_result_formatter.format(
-            tool_call_result, tool_call.function
+            tool_call_result, state.runtime.functions[tool_call.function]
         )
         tool_call_results.append(
             ChatToolResultMessage(

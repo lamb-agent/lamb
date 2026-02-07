@@ -1,3 +1,5 @@
+import typing
+
 from agentdojo.default_suites.v1.tools import (
     banking_client,
     calendar_client,
@@ -10,7 +12,7 @@ from agentdojo.default_suites.v1.tools import (
     web,
 )
 
-BANKING_CLIENT = {
+BANKING_CLIENT: set[typing.Callable] = {
     banking_client.get_balance,
     banking_client.get_iban,
     banking_client.get_most_recent_transactions,
@@ -23,7 +25,7 @@ BANKING_CLIENT = {
     banking_client.update_scheduled_transaction,
 }
 
-CALENDAR_CLIENT = {
+CALENDAR_CLIENT: set[typing.Callable] = {
     calendar_client.add_calendar_event_participants,
     calendar_client.cancel_calendar_event,
     calendar_client.create_calendar_event,
@@ -33,7 +35,7 @@ CALENDAR_CLIENT = {
     calendar_client.search_calendar_events,
 }
 
-CLOUD_DRIVE_CLIENT = {
+CLOUD_DRIVE_CLIENT: set[typing.Callable] = {
     cloud_drive_client.append_to_file,
     cloud_drive_client.create_file,
     cloud_drive_client.delete_file,
@@ -44,7 +46,7 @@ CLOUD_DRIVE_CLIENT = {
     cloud_drive_client.share_file,
 }
 
-EMAIL_CLIENT = {
+EMAIL_CLIENT: set[typing.Callable] = {
     email_client.delete_email,
     email_client.get_draft_emails,
     email_client.get_received_emails,
@@ -56,11 +58,11 @@ EMAIL_CLIENT = {
     email_client.send_email,
 }
 
-FILE_READER = {
+FILE_READER: set[typing.Callable] = {
     file_reader.read_file,
 }
 
-SLACK_CLIENT = {
+SLACK_CLIENT: set[typing.Callable] = {
     slack.add_user_to_channel,
     slack.get_channels,
     slack.get_users_in_channel,
@@ -72,7 +74,7 @@ SLACK_CLIENT = {
     slack.send_channel_message,
 }
 
-TRAVEL_BOOKING_CLIENT = {
+TRAVEL_BOOKING_CLIENT: set[typing.Callable] = {
     travel_booking_client.check_restaurant_opening_hours,
     travel_booking_client.get_all_car_rental_companies_in_city,
     travel_booking_client.get_all_hotels_in_city,
@@ -98,27 +100,27 @@ TRAVEL_BOOKING_CLIENT = {
     travel_booking_client.reserve_restaurant,
 }
 
-USER_ACCOUNT = {
+USER_ACCOUNT: set[typing.Callable] = {
     user_account.get_user_info,
     user_account.update_password,
     user_account.update_user_info,
 }
 
-WEB_CLIENT = {
+WEB_CLIENT: set[typing.Callable] = {
     web.get_webpage,
     web.download_file,
     web.post_webpage,
     web.standardize_url,
 }
 
-READ_ONLY_TRUSTED = {
+READ_ONLY_TRUSTED: set[typing.Callable] = {
     banking_client.get_balance,
     banking_client.get_iban,  # assuming IBAN type is verified
     banking_client.next_id,
     calendar_client.get_current_day,
 }
 
-READ_ONLY_UNTRUSTED = {
+READ_ONLY_UNTRUSTED: set[typing.Callable] = {
     banking_client.get_most_recent_transactions,
     banking_client.get_scheduled_transactions,
     calendar_client.get_day_calendar_events,
@@ -163,9 +165,9 @@ READ_ONLY_UNTRUSTED = {
     web.standardize_url,
 }
 
-READ_ONLY = READ_ONLY_TRUSTED | READ_ONLY_UNTRUSTED
+READ_ONLY: set[typing.Callable] = READ_ONLY_TRUSTED | READ_ONLY_UNTRUSTED
 
-STATE_CHANGING_TRUSTED = {
+STATE_CHANGING_TRUSTED: set[typing.Callable] = {
     banking_client.schedule_transaction,
     banking_client.send_money,
     banking_client.set_balance,
@@ -184,7 +186,7 @@ STATE_CHANGING_TRUSTED = {
     web.download_file,
 }
 
-STATE_CHANGING_UNTRUSTED = {
+STATE_CHANGING_UNTRUSTED: set[typing.Callable] = {
     calendar_client.add_calendar_event_participants,
     calendar_client.create_calendar_event,
     calendar_client.reschedule_calendar_event,
@@ -198,6 +200,6 @@ STATE_CHANGING_UNTRUSTED = {
     user_account.update_user_info,
 }
 
-STATE_CHANGING = STATE_CHANGING_TRUSTED | STATE_CHANGING_UNTRUSTED
+STATE_CHANGING: set[typing.Callable] = STATE_CHANGING_TRUSTED | STATE_CHANGING_UNTRUSTED
 
-TRUSTED = STATE_CHANGING_TRUSTED | READ_ONLY_TRUSTED
+UNTRUSTED: set[typing.Callable] = STATE_CHANGING_UNTRUSTED | READ_ONLY_UNTRUSTED

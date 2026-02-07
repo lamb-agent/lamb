@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from typing import Any, Protocol, assert_never, runtime_checkable
+from typing import Protocol, assert_never, runtime_checkable
 
 import agentdojo.functions_runtime as rt
 import yaml
@@ -11,62 +11,47 @@ class Formatter(Protocol):
     def format(
         self,
         result: rt.FunctionReturnType,
-        tool: str,
+        tool: rt.Function,
     ) -> str: ...
     def expand(self, arg: rt.FunctionCallArgTypes) -> rt.FunctionCallArgTypes: ...
 
 
 class BasicFormatter:
-    def format(self, result: rt.FunctionReturnType, tool: str) -> str:
+    def format(self, result: rt.FunctionReturnType, tool: rt.Function) -> str:
         return _stringify_result(result)
 
     def expand(self, arg: rt.FunctionCallArgTypes) -> rt.FunctionCallArgTypes:
         return arg
 
 
-# TODO: Allow custom function that checks if the result
-# should be obscured
 class VariableFormatter:
     env: dict[str, str]
     tools: dict[str, int]
+    hide_result: Callable[[Callable], bool]
 
-    def __init__(self) -> None:
+    def __init__(self, hide_result: Callable[[Callable], bool]) -> None:
         self.env = {}
         self.tools = {}
+        self.hide_result = hide_result
 
     def format(
         self,
         result: rt.FunctionReturnType,
-        tool: str,
+        tool: rt.Function,
     ) -> str:
-        def contains_str(val: Any) -> bool:
-            match val:
-                case int() | float() | bool() | None:
-                    return False
-                case str():
-                    return True
-                case dict():
-                    return any(contains_str(item) for item in val.values())
-                case BaseModel():
-                    return any(
-                        contains_str(field) for field in val.model_dump().values()
-                    )
-                case Sequence():
-                    return any(contains_str(item) for item in val)
-                case _:
-                    raise TypeError(f"Unknown type for str checking: {type(val)}")
+        tool_name = tool.name
 
         def make_new_var() -> str:
-            assert tool in self.tools, f"Tool {tool} was not added to tools."
-            var = f"<{tool}_{self.tools[tool]}/>"
-            self.tools[tool] += 1
+            assert tool_name in self.tools, f"Tool {tool_name} was not added to tools."
+            var = f"<{tool_name}_{self.tools[tool_name]}/>"
+            self.tools[tool_name] += 1
             return var
 
-        if tool not in self.tools:
-            self.tools[tool] = 0
+        if tool_name not in self.tools:
+            self.tools[tool_name] = 0
 
         result_str = _stringify_result(result)
-        if contains_str(result):
+        if self.hide_result(tool.run):
             new_var = make_new_var()
             self.env[new_var] = result_str
             return new_var

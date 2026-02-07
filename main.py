@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import typing
 from pathlib import Path
 
 from agentdojo import agent_pipeline as pipeline
@@ -9,10 +10,45 @@ from agentdojo import task_suite
 from agentdojo.logging import OutputLogger
 from rich.logging import RichHandler
 
-from lamb import controller, llm, prompts, tool_exec, tool_llm, tool_result, types
+from lamb import (
+    controller,
+    llm,
+    prompts,
+    tool_categories,
+    tool_exec,
+    tool_llm,
+    tool_result,
+    tools,
+    types,
+)
 
 
 def main() -> None:
+    suites = task_suite.get_suites("v1.2")
+    with OutputLogger(None, None):
+        for suite_name, suite in suites.items():
+            if suite_name != "banking":
+                continue
+            # retain_tasks(suite, ["user_task_0"])
+            lamb_pipeline = create_pipeline(suite)
+            results = bench.benchmark_suite_without_injections(
+                suite=suite,
+                agent_pipeline=lamb_pipeline,
+                logdir=Path("./logs"),
+                force_rerun=False,
+            )
+            utility = bench.aggregate_results([results["utility_results"]])
+            print(f"Utility of {suite_name}: {utility}")
+
+
+def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement:
+    untrusted_fns = {tools.query_llm} | (
+        tool_categories.UNTRUSTED & {tool.run for tool in suite.tools}
+    )
+
+    def is_untrusted(fn: typing.Callable) -> bool:
+        return fn in untrusted_fns
+
     try:
         gemini_key = os.environ["LAMB_GEMINI_API_KEY"]
     except KeyError:
@@ -30,13 +66,11 @@ def main() -> None:
         llm=model,
         system_prompt=prompts.P_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
-        tool_result_formatter=tool_result.VariableFormatter(),
+        tool_result_formatter=tool_result.VariableFormatter(hide_result=is_untrusted),
         tool_llm=tool_llm.quarantined_llm,
     )
-    agent_loop = types.ADAgentLoop(
-        init=controller.init(config), loop=controller.loop
-    )
-    tools_pipeline = pipeline.AgentPipeline(
+    agent_loop = types.ADAgentLoop(init=controller.init(config), loop=controller.loop)
+    lamb_pipeline = pipeline.AgentPipeline(
         [
             pipeline.InitQuery(),
             agent_loop,
@@ -45,22 +79,9 @@ def main() -> None:
     # This is an inconsistency in AgentDojo.
     # The benchmark requires the attribute `name` to be set,
     # but the `AgentPipeline` class doesn't have it.
-    tools_pipeline.__setattr__("name", "lamb")
+    lamb_pipeline.__setattr__("name", "lamb")
+    return lamb_pipeline
 
-    suites = task_suite.get_suites("v1.2")
-    with OutputLogger(None, None):
-        for suite_name, suite in suites.items():
-            if suite_name != "travel":
-                continue
-            retain_tasks(suite, ["user_task_0"])
-            results = bench.benchmark_suite_without_injections(
-                suite=suite,
-                agent_pipeline=tools_pipeline,
-                logdir=Path("./logs"),
-                force_rerun=False,
-            )
-            utility = bench.aggregate_results([results["utility_results"]])
-            print(f"Utility of {suite_name}: {utility}")
 
 def retain_tasks(suite: task_suite.TaskSuite, task_names: list[str]) -> None:
     # ruff: disable[SLF001]
