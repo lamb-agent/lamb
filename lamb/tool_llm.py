@@ -64,6 +64,20 @@ def bounded_llm(
     return _make_query(initial_state, controller.loop)
 
 
+def _check_schema(schema: dict | list | bool | str | float) -> bool:  # noqa: FBT001
+    match schema:
+        case bool() | str() | int() | float():
+            return True
+        case list():
+            return all(_check_schema(sub_schema) for sub_schema in schema)
+        case {"type": "string"}:
+            return False
+        case dict():
+            return all(_check_schema(sub_schema) for sub_schema in schema.values())
+        case _:
+            typing.assert_never(schema)
+
+
 def _make_query(
     initial_state: types.State,
     loop: types.Transition,
@@ -84,6 +98,8 @@ def _make_query(
         user_prompt = types.make_user_prompt(prompt)
         response_format: ResponseFormat = types.TEXT_FORMAT
         if schema:
+            if not _check_schema(schema):
+                raise ValueError("There must be no strings in the schema.")
             response_format = {
                 "type": "json_schema",
                 "json_schema": {
