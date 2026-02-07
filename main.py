@@ -27,6 +27,8 @@ def main() -> None:
     suites = task_suite.get_suites("v1.2")
     with OutputLogger(None, None):
         for suite_name, suite in suites.items():
+            if suite_name != "banking":
+                continue
             # retain_tasks(suite, ["user_task_0"])
             lamb_pipeline = create_pipeline(suite)
             results = bench.benchmark_suite_without_injections(
