@@ -4,7 +4,6 @@ from dataclasses import replace
 
 import agentdojo.functions_runtime as rt
 import jsonschema
-from agentdojo import logging
 
 from lamb import controller, prompts, tool_exec, tool_result, types
 
@@ -21,6 +20,7 @@ def quarantined_llm(
 
     empty_runtime = rt.FunctionsRuntime([])
     config = types.Config(
+        identity=types.Identity.QUARANTINED,
         llm=llm,
         system_prompt=prompts.Q_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
@@ -36,10 +36,9 @@ def quarantined_llm(
         response_format=types.TEXT_FORMAT,  # Is overwritten by query call anyway
     )
 
-    def loop(state: types.State) -> types.State:
-        return state.next_llm()  # Only call the llm, no agent loop
-
-    return _make_query(initial_state, loop)
+    # Call controller loop limited to two iterations
+    # (one for user message, one for assistant answer)
+    return _make_query(initial_state, lambda s: controller.loop(s, 2))
 
 
 def bounded_llm(
@@ -50,6 +49,7 @@ def bounded_llm(
     """Create B-LLM query function with tool-calling abilities."""
 
     config = types.Config(
+        identity=types.Identity.BOUNDED,
         llm=llm,
         system_prompt=prompts.B_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
@@ -57,9 +57,7 @@ def bounded_llm(
         tool_llm=None,
         read_only_tools=set(),
     )
-    runtime = rt.FunctionsRuntime(
-        [rt.make_function(fn) for fn in read_only_fns]
-    )
+    runtime = rt.FunctionsRuntime([rt.make_function(fn) for fn in read_only_fns])
     init_fn = controller.init(config)
     initial_state = init_fn(
         runtime,
@@ -134,24 +132,6 @@ def _make_query(
             result_dict = json.loads(result)
             jsonschema.validate(result_dict, schema)
             result = result_dict
-
-        # We know that at runtime, AD uses the tracelogger
-        # and we have to override the delegate's messages
-        # to manipulate the message logging.
-        # TODO: This is very hacky. Find a better way. Maybe custom logging.
-        logger = typing.cast("logging.TraceLogger", logging.Logger.get())
-
-        # save old logger state
-        old_pipeline_name = logger.context["pipeline_name"]
-        old_messages = logger.delegate.messages
-
-        logger.context["pipeline_name"] = "lamb_sub_llm"
-        logger.delegate.messages = []
-        logger.log(list(final_state.messages))
-
-        # reset to old logger state
-        logger.context["pipeline_name"] = old_pipeline_name
-        logger.delegate.messages = old_messages
 
         return result
 

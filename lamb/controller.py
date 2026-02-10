@@ -1,15 +1,15 @@
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 
 import agentdojo.functions_runtime as rt
-import agentdojo.logging as log
 from agentdojo.types import (
-    ChatAssistantMessage,
     ChatMessage,
+    ChatSystemMessage,
     TextContentBlock,
 )
 
-from lamb import tools, types
+from lamb import logging, tools, types
 
 
 def init(config: types.Config) -> types.Init:
@@ -20,6 +20,10 @@ def init(config: types.Config) -> types.Init:
         env: rt.TaskEnvironment,
         messages: Sequence[ChatMessage],
     ) -> types.State:
+        assert len(messages) == 1, "Messages must only contain user message"
+        assert messages[0]["role"] == "user", "Messages must only contain user message"
+        user_message = messages[0]
+
         # TODO: is there a better way with proper typing to edit the env?
         if config.tool_llm:
             runtime.register_function(tools.query_llm)
@@ -32,7 +36,7 @@ def init(config: types.Config) -> types.Init:
         return types.State(
             runtime,
             env,
-            [system_prompt, *messages],
+            [system_prompt, user_message],
             config,
             types.TEXT_FORMAT,
         )
@@ -46,23 +50,24 @@ def loop(
 ) -> types.State:
     # Prevent infinite loops
     if max_iters <= 0:
-        ChatAssistantMessage(
-            role="assistant",
+        failure_message = ChatSystemMessage(
+            role="system",
             content=[
                 TextContentBlock(
                     type="text",
                     content="Unfortunately, I failed to fulfill your request",
                 )
             ],
-            tool_calls=[],
         )
-        return state
+        logging.log_message(state.config.identity, failure_message)
+        return replace(state, messages=[*state.messages, failure_message])
     nr_messages = len(state.messages)
     assert nr_messages >= 2, (
         "There must be at least the system message and the initial prompt"
     )
 
     last_message = state.messages[-1]
+    logging.log_message(state.config.identity, last_message)
     next_state: types.State
     match last_message:
         # Initial user prompt
@@ -73,6 +78,9 @@ def loop(
             calls is not None and len(calls) > 0
         ):
             tool_state = state.next_tool()
+            logging.log_messages(
+                state.config.identity, tool_state.messages[nr_messages:]
+            )
             next_state = tool_state.next_llm()
         # assistant finished without calling tools
         case {"role": "assistant"}:
@@ -82,8 +90,7 @@ def loop(
                 object.__delattr__(state.env, "tool_llm")
             return state
         case _:
-            logger = log.Logger.get()
-            logger.log_error(f"Illegal message role: {last_message['role']}")
+            logging.exception(f"Illegal message role: {last_message['role']}")
             sys.exit(1)
     assert len(next_state.messages) > nr_messages, "LLM must populate messages"
     return loop(next_state, max_iters=max_iters - 1)

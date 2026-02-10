@@ -1,18 +1,16 @@
-import logging
 import os
 import sys
 import typing
-from pathlib import Path
 
+import agentdojo.logging
 from agentdojo import agent_pipeline as pipeline
 from agentdojo import benchmark as bench
 from agentdojo import task_suite
-from agentdojo.logging import OutputLogger
-from rich.logging import RichHandler
 
 from lamb import (
     controller,
     llm,
+    logging,
     prompts,
     tool_categories,
     tool_exec,
@@ -25,16 +23,17 @@ from lamb import (
 
 def main() -> None:
     suites = task_suite.get_suites("v1.2")
-    with OutputLogger(None, None):
+    # we don't actually use the AD logger,
+    # but if we don't initialize it AD crashes
+    with agentdojo.logging.OutputLogger(None, None):
         for suite_name, suite in suites.items():
-            if suite_name != "banking":
-                continue
+            logging.debug(f"Executing suite {suite_name}")
             # retain_tasks(suite, ["user_task_0"])
             lamb_pipeline = create_pipeline(suite)
             results = bench.benchmark_suite_without_injections(
                 suite=suite,
                 agent_pipeline=lamb_pipeline,
-                logdir=Path("./logs"),
+                logdir=None,
                 force_rerun=False,
             )
             utility = bench.aggregate_results([results["utility_results"]])
@@ -63,6 +62,7 @@ def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement
     # model=llm.cerebras(llm.CerebrasModel.GPT_OSS, cerebras_key)
     model = llm.local(llm.OllamaModel.GPT_OSS_120B, thinking="medium")
     config = types.Config(
+        identity=types.Identity.PRIVILEDGED,
         llm=model,
         system_prompt=prompts.P_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
@@ -99,16 +99,5 @@ def retain_tasks(suite: task_suite.TaskSuite, task_names: list[str]) -> None:
     # ruff: enable[SLF001]
 
 
-def configure_logging() -> None:
-    fmt = "%(message)s"
-    logging.basicConfig(
-        format=fmt,
-        level=logging.INFO,
-        datefmt="%H:%M:%S",
-        handlers=[RichHandler(show_path=False, markup=True)],
-    )
-
-
 if __name__ == "__main__":
-    configure_logging()
     main()

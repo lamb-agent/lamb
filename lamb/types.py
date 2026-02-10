@@ -1,5 +1,6 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from enum import Enum
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
@@ -24,8 +25,23 @@ type ToolLLM = Callable[[Transition, set[Callable], rt.TaskEnvironment], Query]
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
 
 
+class Identity(Enum):
+    SINGLE = "single"
+    PRIVILEDGED = "priviledged"
+    QUARANTINED = "quarantined"
+    BOUNDED = "bounded"
+
+
+class Role(Enum):
+    USER = "user"
+    TOOL = "tool"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+
 @dataclass
 class Config:
+    identity: Identity
     system_prompt: str
     llm: Transition
     tool_executor: Transition
