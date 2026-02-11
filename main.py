@@ -42,11 +42,13 @@ def main() -> None:
 
 def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement:
     suite_tools = {tool.run for tool in suite.tools}
-    untrusted_fns = {tools.query_llm} | (tool_categories.UNTRUSTED & suite_tools)
+    untrusted_source_fns = {tools.query_llm} | (
+        tool_categories.UNTRUSTED_SOURCE & suite_tools
+    )
     read_only_fns = tool_categories.READ_ONLY & suite_tools
 
     def is_untrusted(fn: typing.Callable) -> bool:
-        return fn in untrusted_fns
+        return fn in untrusted_source_fns
 
     try:
         gemini_key = os.environ["LAMB_GEMINI_API_KEY"]
