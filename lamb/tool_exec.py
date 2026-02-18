@@ -68,8 +68,9 @@ def default(state: types.State) -> types.State:
             if isinstance(arg_v, str) and is_string_list(arg_v):
                 tool_call.args[arg_k] = literal_eval(arg_v)
 
+        tool = state.runtime.functions[tool_call.function]
         args = {
-            key: state.config.tool_result_formatter.expand(value)
+            key: state.config.tool_result_formatter.expand(tool, value)
             for key, value in tool_call.args.items()
         }
         tool_call_result, error = state.runtime.run_function(
@@ -77,7 +78,8 @@ def default(state: types.State) -> types.State:
         )
         tool_call_id = tool_call.id
         formatted_tool_call_result = state.config.tool_result_formatter.format(
-            tool_call_result, state.runtime.functions[tool_call.function]
+            tool,
+            tool_call_result,
         )
         tool_call_results.append(
             ChatToolResultMessage(

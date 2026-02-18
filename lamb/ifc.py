@@ -7,6 +7,9 @@ from typing import Self
 from lamb import tool_categories
 
 
+class IFCError(Exception):
+    pass
+
 class Integrity(Enum):  # noqa: PLW1641
     """Integrity is modelled as the Lattice L={TRUSTED,UNTRUSTED}.
 
@@ -39,7 +42,7 @@ class Confidentiality(Enum):
         return type(self)(max(self.value, other.value))
 
 
-@dataclass
+@dataclass(frozen=True)
 class IFCLabel:
     int: Integrity
     conf: Confidentiality
@@ -89,7 +92,7 @@ def tool_source_label(tool: typing.Callable) -> IFCLabel:
 def check_tool_call(
     tool: typing.Callable,
     model_context: IFCLabel,
-    variable_labels: list[IFCLabel],
+    variable_labels: set[IFCLabel],
 ) -> bool:
     """Tool call check succeeds if the egress using this tool is permitted."""
 

@@ -1,6 +1,5 @@
 import os
 import sys
-import typing
 
 import agentdojo.logging
 from agentdojo import agent_pipeline as pipeline
@@ -9,6 +8,7 @@ from agentdojo import task_suite
 
 from lamb import (
     controller,
+    ifc,
     llm,
     logging,
     prompts,
@@ -16,7 +16,6 @@ from lamb import (
     tool_exec,
     tool_llm,
     tool_result,
-    tools,
     types,
 )
 
@@ -42,13 +41,7 @@ def main() -> None:
 
 def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement:
     suite_tools = {tool.run for tool in suite.tools}
-    untrusted_source_fns = {tools.query_llm} | (
-        tool_categories.UNTRUSTED_SOURCE & suite_tools
-    )
     read_only_fns = tool_categories.READ_ONLY & suite_tools
-
-    def is_untrusted(fn: typing.Callable) -> bool:
-        return fn in untrusted_source_fns
 
     try:
         gemini_key = os.environ["LAMB_GEMINI_API_KEY"]
@@ -68,7 +61,9 @@ def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement
         llm=model,
         system_prompt=prompts.P_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
-        tool_result_formatter=tool_result.VariableFormatter(hide_result=is_untrusted),
+        tool_result_formatter=tool_result.IFCFormatter(
+            get_model_context=lambda: ifc.BOT  # context doesn't change
+        ),
         tool_llm=tool_llm.bounded_llm,
         read_only_tools=read_only_fns,
     )

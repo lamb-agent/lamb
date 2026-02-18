@@ -1,30 +1,41 @@
 from collections.abc import Callable, Sequence
+from functools import reduce
 from typing import Protocol, assert_never, runtime_checkable
 
 import agentdojo.functions_runtime as rt
 import yaml
 from pydantic import BaseModel
 
+from lamb import ifc, tool_categories, tools
+
 
 @runtime_checkable
 class Formatter(Protocol):
     def format(
         self,
-        result: rt.FunctionReturnType,
         tool: rt.Function,
+        result: rt.FunctionReturnType,
     ) -> str: ...
-    def expand(self, arg: rt.FunctionCallArgTypes) -> rt.FunctionCallArgTypes: ...
+    def expand(
+        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
+    ) -> rt.FunctionCallArgTypes: ...
 
 
-class BasicFormatter:
-    def format(self, result: rt.FunctionReturnType, tool: rt.Function) -> str:
+class BasicFormatter(Formatter):
+    """Leaves arguments and results unchanged."""
+
+    def format(self, tool: rt.Function, result: rt.FunctionReturnType) -> str:
         return _stringify_result(result)
 
-    def expand(self, arg: rt.FunctionCallArgTypes) -> rt.FunctionCallArgTypes:
+    def expand(
+        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
+    ) -> rt.FunctionCallArgTypes:
         return arg
 
 
-class VariableFormatter:
+class VariableFormatter(Formatter):
+    """Can hide results in variables and expand them when used in arguments."""
+
     env: dict[str, str]
     tools: dict[str, int]
     hide_result: Callable[[Callable], bool]
@@ -36,8 +47,8 @@ class VariableFormatter:
 
     def format(
         self,
-        result: rt.FunctionReturnType,
         tool: rt.Function,
+        result: rt.FunctionReturnType,
     ) -> str:
         tool_name = tool.name
 
@@ -57,7 +68,11 @@ class VariableFormatter:
             return new_var
         return result_str
 
-    def expand(self, arg: rt.FunctionCallArgTypes) -> rt.FunctionCallArgTypes:
+    def expand(
+        self,
+        tool: rt.Function,
+        arg: rt.FunctionCallArgTypes,
+    ) -> rt.FunctionCallArgTypes:
         """Replace variable references in tool call args with their respective value.
 
         Assuming the arg is: "Summarize this: <variable1/>"
@@ -77,17 +92,81 @@ class VariableFormatter:
             case str():
                 return replace_vars(arg)
             case list():
-                return [self.expand(item) for item in arg]
+                return [self.expand(tool, item) for item in arg]
             case dict():
-                return {key: self.expand(val) for key, val in arg.items()}
+                return {key: self.expand(tool, val) for key, val in arg.items()}
             case rt.FunctionCall():
                 return arg.model_copy(
                     update={
-                        "args": {key: self.expand(val) for key, val in arg.args.items()}
+                        "args": {
+                            key: self.expand(tool, val) for key, val in arg.args.items()
+                        }
                     }
                 )
             case _:
                 assert_never(arg)
+
+    @staticmethod
+    def integrity_based() -> "VariableFormatter":
+        """Create new variable formatter that hides results from untrusted sources."""
+
+        untrusted_source_fns = {tools.query_llm} | (tool_categories.UNTRUSTED_SOURCE)
+
+        return VariableFormatter(hide_result=untrusted_source_fns.__contains__)
+
+
+class IFCFormatter(Formatter):
+    variable_formatter: VariableFormatter
+    get_model_context: Callable[[], ifc.IFCLabel]
+    env: dict[str, ifc.IFCLabel]
+
+    def __init__(self, get_model_context: Callable[[], ifc.IFCLabel]) -> None:
+        def hide_result(tool: Callable) -> bool:
+            return ifc.check_tool_result(tool, get_model_context())
+
+        self.env = {}
+        self.variable_formatter = VariableFormatter(hide_result)
+        self.get_model_context = get_model_context
+
+    def format(self, tool: rt.Function, result: rt.FunctionReturnType) -> str:
+        # the formatter's hide_result function already uses ifc
+        # to determine if the result should be hidden in a variable
+        maybe_variable = self.variable_formatter.format(tool, result)
+        if maybe_variable in self.variable_formatter.env:
+            # result is a variable, so we store its ifc label
+            self.env[maybe_variable] = ifc.tool_source_label(tool)
+        return maybe_variable
+
+    def expand(
+        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
+    ) -> rt.FunctionCallArgTypes:
+        def extract_vars(text: str) -> set[str]:
+            return {var for var in self.env if var in text}
+
+        def find_vars(arg: rt.FunctionCallArgTypes) -> set[str]:
+            match arg:
+                case int() | float() | bool() | None:
+                    return set()
+                case str():
+                    return extract_vars(arg)
+                case list():
+                    return reduce(set.union, (find_vars(item) for item in arg))
+                case dict():
+                    return reduce(set.union, (find_vars(item) for item in arg.values()))
+                case rt.FunctionCall():
+                    return reduce(
+                        set.union, (find_vars(item) for item in arg.args.values())
+                    )
+                case _:
+                    assert_never(arg)
+
+        variable_labels = {self.env[var] for var in find_vars(arg)}
+        if ifc.check_tool_call(tool, self.get_model_context(), variable_labels):
+            raise ifc.IFCError(
+                f"The follow argument contains a variable that violates the IFC policies: {arg}"  # noqa: E501
+            )
+
+        return self.variable_formatter.expand(tool, arg)
 
 
 def _stringify_result(
