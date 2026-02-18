@@ -1,14 +1,13 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol, runtime_checkable
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 import agentdojo.types as ad_types
 from openai.types.chat.completion_create_params import ResponseFormat
 from openai.types.shared_params import ResponseFormatText
-
-from lamb import tool_result
 
 type Transition = Callable[[State], State]
 """Go from one state to the next."""
@@ -23,6 +22,18 @@ type Query = TextQuery | StructuredQuery
 type ToolLLM = Callable[[Transition, set[Callable], rt.TaskEnvironment], Query]
 
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
+
+
+@runtime_checkable
+class Formatter(Protocol):
+    def format(
+        self,
+        tool: rt.Function,
+        result: rt.FunctionReturnType,
+    ) -> str: ...
+    def expand(
+        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
+    ) -> rt.FunctionCallArgTypes: ...
 
 
 class Identity(Enum):
@@ -45,7 +56,7 @@ class Config:
     system_prompt: str
     llm: Transition
     tool_executor: Transition
-    tool_result_formatter: tool_result.Formatter
+    tool_result_formatter: Formatter
     tool_llm: ToolLLM | None
     read_only_tools: set[Callable]
 

@@ -1,27 +1,15 @@
 from collections.abc import Callable, Sequence
 from functools import reduce
-from typing import Protocol, assert_never, runtime_checkable
+from typing import assert_never
 
 import agentdojo.functions_runtime as rt
 import yaml
 from pydantic import BaseModel
 
-from lamb import ifc, tool_categories, tools
+from lamb import ifc, tool_categories, tools, types
 
 
-@runtime_checkable
-class Formatter(Protocol):
-    def format(
-        self,
-        tool: rt.Function,
-        result: rt.FunctionReturnType,
-    ) -> str: ...
-    def expand(
-        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
-    ) -> rt.FunctionCallArgTypes: ...
-
-
-class BasicFormatter(Formatter):
+class BasicFormatter(types.Formatter):
     """Leaves arguments and results unchanged."""
 
     def format(self, tool: rt.Function, result: rt.FunctionReturnType) -> str:
@@ -33,7 +21,7 @@ class BasicFormatter(Formatter):
         return arg
 
 
-class VariableFormatter(Formatter):
+class VariableFormatter(types.Formatter):
     """Can hide results in variables and expand them when used in arguments."""
 
     env: dict[str, str]
@@ -115,7 +103,7 @@ class VariableFormatter(Formatter):
         return VariableFormatter(hide_result=untrusted_source_fns.__contains__)
 
 
-class IFCFormatter(Formatter):
+class IFCFormatter(types.Formatter):
     variable_formatter: VariableFormatter
     get_model_context: Callable[[], ifc.IFCLabel]
     env: dict[str, ifc.IFCLabel]
