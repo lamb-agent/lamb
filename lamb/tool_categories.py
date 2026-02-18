@@ -12,6 +12,8 @@ from agentdojo.default_suites.v1.tools import (
     web,
 )
 
+from lamb import tools
+
 BANKING_CLIENT: set[typing.Callable] = {
     banking_client.get_balance,
     banking_client.get_iban,
@@ -138,6 +140,8 @@ READ_ONLY: set[typing.Callable] = {
     slack.get_users_in_channel,
     slack.read_channel_messages,
     slack.read_inbox,
+    tools.query_llm,
+    tools.query_llm_structured,
     travel_booking_client.check_restaurant_opening_hours,
     travel_booking_client.get_all_car_rental_companies_in_city,
     travel_booking_client.get_all_hotels_in_city,
@@ -216,6 +220,7 @@ TRUSTED_SOURCE: set[typing.Callable] = {
     slack.send_channel_message,
     slack.invite_user_to_slack,
     slack.remove_user_from_slack,
+    tools.query_llm_structured,
     user_account.update_password,
     web.post_webpage,
     web.download_file,
@@ -251,6 +256,7 @@ UNTRUSTED_SOURCE: set[typing.Callable] = {
     slack.get_users_in_channel,
     slack.read_channel_messages,
     slack.read_inbox,
+    tools.query_llm,
     travel_booking_client.check_restaurant_opening_hours,
     travel_booking_client.get_all_car_rental_companies_in_city,
     travel_booking_client.get_all_hotels_in_city,
@@ -284,7 +290,7 @@ thus would taint the model, if revealed."""
 # TODO: Do we have any trusted sinks?
 TRUSTED_SINK: set[typing.Callable] = set()
 """Tools that must only be called with trusted (non-tainted) information."""
-UNTRUSTED_SINK: set[typing.Callable] = READ_ONLY | STATE_CHANGING # all
+UNTRUSTED_SINK: set[typing.Callable] = READ_ONLY | STATE_CHANGING  # all
 """Tools that can be called with untrusted (tainted) information."""
 
 HIGH_CONF_SOURCE: set[typing.Callable] = {
@@ -342,6 +348,8 @@ LOW_CONF_SOURCE: set[typing.Callable] = {
     slack.remove_user_from_slack,
     slack.send_direct_message,
     slack.send_channel_message,
+    tools.query_llm,
+    tools.query_llm_structured,
     travel_booking_client.check_restaurant_opening_hours,
     travel_booking_client.get_all_car_rental_companies_in_city,
     travel_booking_client.get_all_hotels_in_city,
@@ -371,7 +379,7 @@ LOW_CONF_SOURCE: set[typing.Callable] = {
 """Tools that return low confidentiality (public) information.
 This is also the case if the tool returns `None` or a static message."""
 
-HIGH_CONF_SINK: set[typing.Callable]  = {
+HIGH_CONF_SINK: set[typing.Callable] = {
     banking_client.get_balance,
     banking_client.get_iban,
     banking_client.get_most_recent_transactions,
@@ -428,14 +436,16 @@ HIGH_CONF_SINK: set[typing.Callable]  = {
 """Tools whose usage is internal, thus not observable by the untrusted.
 This means no confidential information can be leaked."""
 
-LOW_CONF_SINK: set[typing.Callable]  = {
+LOW_CONF_SINK: set[typing.Callable] = {
+    tools.query_llm,
+    tools.query_llm_structured,
     # In a general domain, even GET queries would be considered a low conf sink
     web.post_webpage,
 }
 """Tools whose usage is observable by anyone.
 Only public information may be sent."""
 
-ARG_CONF_SINK: set[typing.Callable]  = {
+ARG_CONF_SINK: set[typing.Callable] = {
     banking_client.schedule_transaction,
     banking_client.send_money,
     banking_client.set_balance,
@@ -459,7 +469,7 @@ ARG_CONF_SINK: set[typing.Callable]  = {
     travel_booking_client.reserve_restaurant,
     user_account.update_user_info,
     web.download_file,
-    web.get_webpage, # can carry arbitrary information in the URL
+    web.get_webpage,  # can carry arbitrary information in the URL
 }
 """Tools where the sink (and its confidentiality level)
 is defined by the arguments of the call.
