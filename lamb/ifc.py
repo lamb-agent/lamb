@@ -10,6 +10,7 @@ from lamb import tool_categories
 class IFCError(Exception):
     pass
 
+
 class Integrity(Enum):  # noqa: PLW1641
     """Integrity is modelled as the Lattice L={TRUSTED,UNTRUSTED}.
 
@@ -48,7 +49,9 @@ class IFCLabel:
     conf: Confidentiality
 
     def permitted_flow(self, sink: Self) -> bool:
-        return self.integ.permitted_flow(sink.integ) and self.conf.permitted_flow(sink.conf)
+        return self.integ.permitted_flow(sink.integ) and self.conf.permitted_flow(
+            sink.conf
+        )
 
     def join(self, other: Self) -> Self:
         return type(self)(
@@ -65,7 +68,7 @@ def tool_sink_label(tool: typing.Callable) -> IFCLabel:
     conf = (
         Confidentiality.HIGH
         if tool in tool_categories.HIGH_CONF_SINK
-        else Confidentiality.LOW # Currently, .ARG_CONF is LOW conf
+        else Confidentiality.LOW  # Currently, .ARG_CONF is LOW conf
     )
     integ = (
         Integrity.TRUSTED
@@ -89,7 +92,7 @@ def tool_source_label(tool: typing.Callable) -> IFCLabel:
     return IFCLabel(integ, conf)
 
 
-def check_tool_call(
+def permitted_tool_call(
     tool: typing.Callable,
     model_context: IFCLabel,
     variable_labels: set[IFCLabel],
@@ -101,7 +104,7 @@ def check_tool_call(
     return source.permitted_flow(sink)
 
 
-def check_tool_result(
+def permitted_tool_result(
     tool: typing.Callable,
     model_context: IFCLabel,
 ) -> bool:

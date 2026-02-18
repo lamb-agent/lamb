@@ -8,7 +8,7 @@ from agentdojo.types import (
     text_content_block_from_string,
 )
 
-from lamb import types
+from lamb import ifc, types
 
 
 def is_string_list(s: str) -> bool:
@@ -77,17 +77,31 @@ def default(state: types.State) -> types.State:
             state.env, tool_call.function, args
         )
         tool_call_id = tool_call.id
-        formatted_tool_call_result = state.config.tool_result_formatter.format(
-            tool,
-            tool_call_result,
-        )
-        tool_call_results.append(
-            ChatToolResultMessage(
-                role="tool",
-                content=[text_content_block_from_string(formatted_tool_call_result)],
-                tool_call_id=tool_call_id,
-                tool_call=tool_call,
-                error=error,
+        try:
+            formatted_tool_call_result = state.config.tool_result_formatter.format(
+                tool,
+                tool_call_result,
             )
-        )
+            tool_call_results.append(
+                ChatToolResultMessage(
+                    role="tool",
+                    content=[
+                        text_content_block_from_string(formatted_tool_call_result)
+                    ],
+                    tool_call_id=tool_call_id,
+                    tool_call=tool_call,
+                    error=error,
+                )
+            )
+        except ifc.IFCError as e:
+            tool_call_results.append(
+                ChatToolResultMessage(
+                    role="tool",
+                    content=[],
+                    tool_call_id=tool_call_id,
+                    tool_call=tool_call,
+                    error=str(e),
+                )
+            )
+
     return replace(state, messages=[*state.messages, *tool_call_results])

@@ -110,7 +110,7 @@ class IFCFormatter(types.Formatter):
 
     def __init__(self, get_model_context: Callable[[], ifc.IFCLabel]) -> None:
         def hide_result(tool: Callable) -> bool:
-            return ifc.check_tool_result(tool, get_model_context())
+            return not ifc.permitted_tool_result(tool, get_model_context())
 
         self.env = {}
         self.variable_formatter = VariableFormatter(hide_result)
@@ -122,7 +122,7 @@ class IFCFormatter(types.Formatter):
         maybe_variable = self.variable_formatter.format(tool, result)
         if maybe_variable in self.variable_formatter.env:
             # result is a variable, so we store its ifc label
-            self.env[maybe_variable] = ifc.tool_source_label(tool)
+            self.env[maybe_variable] = ifc.tool_source_label(tool.run)
         return maybe_variable
 
     def expand(
@@ -149,7 +149,7 @@ class IFCFormatter(types.Formatter):
                     assert_never(arg)
 
         variable_labels = {self.env[var] for var in find_vars(arg)}
-        if ifc.check_tool_call(tool, self.get_model_context(), variable_labels):
+        if not ifc.permitted_tool_call(tool.run, self.get_model_context(), variable_labels):
             raise ifc.IFCError(
                 f"The follow argument contains a variable that violates the IFC policies: {arg}"  # noqa: E501
             )
