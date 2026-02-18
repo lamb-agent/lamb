@@ -44,28 +44,28 @@ class Confidentiality(Enum):
 
 @dataclass(frozen=True)
 class IFCLabel:
-    int: Integrity
+    integ: Integrity
     conf: Confidentiality
 
     def permitted_flow(self, sink: Self) -> bool:
-        return self.int.permitted_flow(sink.int) and self.conf.permitted_flow(sink.conf)
+        return self.integ.permitted_flow(sink.integ) and self.conf.permitted_flow(sink.conf)
 
     def join(self, other: Self) -> Self:
         return type(self)(
-            int=self.int.join(other.int),
+            integ=self.integ.join(other.integ),
             conf=self.conf.join(other.conf),
         )
 
 
-TOP = IFCLabel(int=Integrity.UNTRUSTED, conf=Confidentiality.HIGH)
-BOT = IFCLabel(int=Integrity.TRUSTED, conf=Confidentiality.LOW)
+TOP = IFCLabel(integ=Integrity.UNTRUSTED, conf=Confidentiality.HIGH)
+BOT = IFCLabel(integ=Integrity.TRUSTED, conf=Confidentiality.LOW)
 
 
 def tool_sink_label(tool: typing.Callable) -> IFCLabel:
     conf = (
         Confidentiality.HIGH
         if tool in tool_categories.HIGH_CONF_SINK
-        else Confidentiality.LOW
+        else Confidentiality.LOW # Currently, .ARG_CONF is LOW conf
     )
     integ = (
         Integrity.TRUSTED

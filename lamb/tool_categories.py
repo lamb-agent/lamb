@@ -398,6 +398,7 @@ HIGH_CONF_SINK: set[typing.Callable]  = {
     slack.get_users_in_channel,
     slack.read_channel_messages,
     slack.read_inbox,
+    slack.remove_user_from_slack,
     # The travel booking requests would probably leak information in the real world,
     # but we just query our own DB here.
     travel_booking_client.check_restaurant_opening_hours,
@@ -422,13 +423,13 @@ HIGH_CONF_SINK: set[typing.Callable]  = {
     travel_booking_client.get_user_information,
     user_account.get_user_info,
     user_account.update_password,
-    web.download_file,
     web.standardize_url,
 }
 """Tools whose usage is internal, thus not observable by the untrusted.
 This means no confidential information can be leaked."""
 
 LOW_CONF_SINK: set[typing.Callable]  = {
+    # In a general domain, even GET queries would be considered a low conf sink
     web.post_webpage,
 }
 """Tools whose usage is observable by anyone.
@@ -451,13 +452,13 @@ ARG_CONF_SINK: set[typing.Callable]  = {
     email_client.send_email,
     slack.add_user_to_channel,
     slack.invite_user_to_slack,
-    slack.remove_user_from_slack,
     slack.send_direct_message,
     slack.send_channel_message,
     travel_booking_client.reserve_car_rental,
     travel_booking_client.reserve_hotel,
     travel_booking_client.reserve_restaurant,
     user_account.update_user_info,
+    web.download_file,
     web.get_webpage, # can carry arbitrary information in the URL
 }
 """Tools where the sink (and its confidentiality level)
