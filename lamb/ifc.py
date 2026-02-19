@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from os import stat
 import typing
 from enum import Enum
@@ -85,6 +86,24 @@ class IFCLabel(Enum):
             self.integ.join(other.integ),
             self.conf.join(other.conf),
         )
+
+
+def tools_for_model_context(context: IFCLabel) -> set[Callable]:
+    match context:
+        case IFCLabel.TL:
+            return tool_categories.ALL
+        case IFCLabel.TH:
+            return tool_categories.HIGH_CONF_SINK  # TODO: add arg_conf
+        case IFCLabel.UL:
+            return tool_categories.READ_ONLY & tool_categories.UNTRUSTED_SINK
+        case IFCLabel.UH:
+            return (
+                tool_categories.READ_ONLY
+                & tool_categories.HIGH_CONF_SINK
+                & tool_categories.UNTRUSTED_SINK
+            )  # TODO: add arg_conf
+        case _:
+            assert_never(context)
 
 
 def tool_sink_label(tool: typing.Callable) -> IFCLabel:

@@ -115,6 +115,19 @@ WEB_CLIENT: set[typing.Callable] = {
     web.standardize_url,
 }
 
+ALL: set[typing.Callable] = (
+    BANKING_CLIENT
+    | CALENDAR_CLIENT
+    | CLOUD_DRIVE_CLIENT
+    | EMAIL_CLIENT
+    | FILE_READER
+    | SLACK_CLIENT
+    | TRAVEL_BOOKING_CLIENT
+    | USER_ACCOUNT
+    | WEB_CLIENT
+)
+
+
 READ_ONLY: set[typing.Callable] = {
     banking_client.get_balance,
     banking_client.get_iban,
@@ -290,7 +303,7 @@ thus would taint the model, if revealed."""
 # TODO: Do we have any trusted sinks?
 TRUSTED_SINK: set[typing.Callable] = set()
 """Tools that must only be called with trusted (non-tainted) information."""
-UNTRUSTED_SINK: set[typing.Callable] = READ_ONLY | STATE_CHANGING  # all
+UNTRUSTED_SINK: set[typing.Callable] = ALL
 """Tools that can be called with untrusted (tainted) information."""
 
 HIGH_CONF_SOURCE: set[typing.Callable] = {
