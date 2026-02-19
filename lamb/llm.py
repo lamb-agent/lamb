@@ -8,8 +8,8 @@ import openai
 import openai.types.chat as openai_types
 
 from lamb import types
-from lamb.prompting_llm import PromptingLLM
 from lamb.openai_llm import OpenAILLM
+from lamb.prompting_llm import PromptingLLM
 
 
 class OllamaModel(Enum):

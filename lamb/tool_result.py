@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from functools import reduce
 from typing import assert_never
 
@@ -16,9 +16,11 @@ class BasicFormatter(types.Formatter):
         return _stringify_result(result)
 
     def expand(
-        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
-    ) -> rt.FunctionCallArgTypes:
-        return arg
+        self,
+        tool: rt.Function,
+        args: Mapping[str, rt.FunctionCallArgTypes],
+    ) -> Mapping[str, rt.FunctionCallArgTypes]:
+        return args
 
 
 class VariableFormatter(types.Formatter):
@@ -67,8 +69,8 @@ class VariableFormatter(types.Formatter):
     def expand(
         self,
         tool: rt.Function,
-        arg: rt.FunctionCallArgTypes,
-    ) -> rt.FunctionCallArgTypes:
+        args: Mapping[str, rt.FunctionCallArgTypes],
+    ) -> Mapping[str, rt.FunctionCallArgTypes]:
         """Replace variable references in tool call args with their respective value.
 
         Assuming the arg is: "Summarize this: <variable1/>"
@@ -82,25 +84,22 @@ class VariableFormatter(types.Formatter):
                 expanded_text = expanded_text.replace(var, val)
             return expanded_text
 
-        match arg:
-            case int() | float() | bool() | None:
-                return arg
-            case str():
-                return replace_vars(arg)
-            case list():
-                return [self.expand(tool, item) for item in arg]
-            case dict():
-                return {key: self.expand(tool, val) for key, val in arg.items()}
-            case rt.FunctionCall():
-                return arg.model_copy(
-                    update={
-                        "args": {
-                            key: self.expand(tool, val) for key, val in arg.args.items()
-                        }
-                    }
-                )
-            case _:
-                assert_never(arg)
+        def expand_arg(arg: rt.FunctionCallArgTypes) -> rt.FunctionCallArgTypes:
+            match arg:
+                case int() | float() | bool() | None:
+                    return arg
+                case str():
+                    return replace_vars(arg)
+                case list():
+                    return [self.expand(tool, item) for item in arg]
+                case dict():
+                    return {key: expand_arg(val) for key, val in arg.items()}
+                case rt.FunctionCall():
+                    return arg.model_copy(update={"args": self.expand(tool, arg.args)})
+                case _:
+                    assert_never(arg)
+
+        return {key: expand_arg(val) for key, val in args.items()}
 
     @staticmethod
     def integrity_based() -> "VariableFormatter":
@@ -138,8 +137,10 @@ class IFCFormatter(types.Formatter):
         return maybe_variable
 
     def expand(
-        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
-    ) -> rt.FunctionCallArgTypes:
+        self,
+        tool: rt.Function,
+        args: Mapping[str, rt.FunctionCallArgTypes],
+    ) -> Mapping[str, rt.FunctionCallArgTypes]:
         def extract_vars(text: str) -> set[str]:
             return {var for var in self.env if var in text}
 
@@ -160,15 +161,16 @@ class IFCFormatter(types.Formatter):
                 case _:
                     assert_never(arg)
 
-        variable_labels = {self.env[var] for var in find_vars(arg)}
-        if not ifc.permitted_tool_call(
-            tool.run, self.get_model_context(), variable_labels
-        ):
-            raise ifc.IFCError(
-                f"The follow argument contains a variable that violates the IFC policies: {arg}"  # noqa: E501
-            )
+        for name, arg in args.items():
+            variable_labels = {self.env[var] for var in find_vars(arg)}
+            if not ifc.permitted_tool_call(
+                tool.run, self.get_model_context(), variable_labels
+            ):
+                raise ifc.IFCError(
+                    f"The argument `{name}` contains a variable that violates the IFC policies"  # noqa: E501
+                )
 
-        return self.variable_formatter.expand(tool, arg)
+        return self.variable_formatter.expand(tool, args)
 
 
 def _stringify_result(

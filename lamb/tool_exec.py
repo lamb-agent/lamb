@@ -69,10 +69,7 @@ def default(state: types.State) -> types.State:
                 tool_call.args[arg_k] = literal_eval(arg_v)
 
         tool = state.runtime.functions[tool_call.function]
-        args = {
-            key: state.config.tool_result_formatter.expand(tool, value)
-            for key, value in tool_call.args.items()
-        }
+        args = state.config.tool_result_formatter.expand(tool, tool_call.args)
         tool_call_result, error = state.runtime.run_function(
             state.env, tool_call.function, args
         )

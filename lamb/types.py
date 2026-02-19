@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol, runtime_checkable
@@ -32,8 +32,10 @@ class Formatter(Protocol):
         result: rt.FunctionReturnType,
     ) -> str: ...
     def expand(
-        self, tool: rt.Function, arg: rt.FunctionCallArgTypes
-    ) -> rt.FunctionCallArgTypes: ...
+        self,
+        tool: rt.Function,
+        args: Mapping[str, rt.FunctionCallArgTypes],
+    ) -> Mapping[str, rt.FunctionCallArgTypes]: ...
 
 
 class Identity(Enum):
