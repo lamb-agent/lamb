@@ -1,5 +1,4 @@
 import typing
-from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
 from typing import Self
@@ -43,10 +42,21 @@ class Confidentiality(Enum):
         return type(self)(max(self.value, other.value))
 
 
-@dataclass(frozen=True)
-class IFCLabel:
+class IFCLabel(Enum):
     integ: Integrity
     conf: Confidentiality
+
+    TL = (Integrity.TRUSTED, Confidentiality.LOW)
+    TH = (Integrity.TRUSTED, Confidentiality.HIGH)
+    UL = (Integrity.UNTRUSTED, Confidentiality.LOW)
+    UH = (Integrity.UNTRUSTED, Confidentiality.HIGH)
+
+    TOP = UH
+    BOT = TL
+
+    def __init__(self, integ: Integrity, conf: Confidentiality) -> None:
+        self.integ = integ
+        self.conf = conf
 
     def permitted_flow(self, sink: Self) -> bool:
         return self.integ.permitted_flow(sink.integ) and self.conf.permitted_flow(
@@ -55,13 +65,9 @@ class IFCLabel:
 
     def join(self, other: Self) -> Self:
         return type(self)(
-            integ=self.integ.join(other.integ),
-            conf=self.conf.join(other.conf),
+            self.integ.join(other.integ),
+            self.conf.join(other.conf),
         )
-
-
-TOP = IFCLabel(integ=Integrity.UNTRUSTED, conf=Confidentiality.HIGH)
-BOT = IFCLabel(integ=Integrity.TRUSTED, conf=Confidentiality.LOW)
 
 
 def tool_sink_label(tool: typing.Callable) -> IFCLabel:
@@ -100,7 +106,7 @@ def permitted_tool_call(
     """Tool call check succeeds if the egress using this tool is permitted."""
 
     sink = tool_sink_label(tool)
-    source = reduce(IFCLabel.join, variable_labels, BOT).join(model_context)
+    source = reduce(IFCLabel.join, variable_labels, IFCLabel.BOT).join(model_context)
     return source.permitted_flow(sink)
 
 

@@ -62,7 +62,7 @@ def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement
         system_prompt=prompts.P_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
         tool_result_formatter=tool_result.IFCFormatter(
-            get_model_context=lambda: ifc.BOT  # context doesn't change
+            get_model_context=lambda: ifc.IFCLabel.BOT  # context doesn't change
         ),
         tool_llm=tool_llm.bounded_llm,
         read_only_tools=read_only_fns,

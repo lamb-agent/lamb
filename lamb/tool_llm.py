@@ -5,7 +5,7 @@ from dataclasses import replace
 import agentdojo.functions_runtime as rt
 import jsonschema
 
-from lamb import controller, prompts, tool_exec, tool_result, types
+from lamb import controller, ifc, prompts, tool_exec, tool_result, types
 
 if typing.TYPE_CHECKING:
     from openai.types.chat.completion_create_params import ResponseFormat
@@ -53,7 +53,9 @@ def bounded_llm(
         llm=llm,
         system_prompt=prompts.B_LLM_SYSTEM_PROMPT,
         tool_executor=tool_exec.default,
-        tool_result_formatter=tool_result.BasicFormatter(),  # No variables
+        tool_result_formatter=tool_result.IFCFormatter(
+            get_model_context=lambda: ifc.IFCLabel.UL
+        ),
         tool_llm=None,
         read_only_tools=set(),
     )

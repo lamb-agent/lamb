@@ -149,7 +149,9 @@ class IFCFormatter(types.Formatter):
                     assert_never(arg)
 
         variable_labels = {self.env[var] for var in find_vars(arg)}
-        if not ifc.permitted_tool_call(tool.run, self.get_model_context(), variable_labels):
+        if not ifc.permitted_tool_call(
+            tool.run, self.get_model_context(), variable_labels
+        ):
             raise ifc.IFCError(
                 f"The follow argument contains a variable that violates the IFC policies: {arg}"  # noqa: E501
             )
