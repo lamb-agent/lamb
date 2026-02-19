@@ -27,11 +27,19 @@ class VariableFormatter(types.Formatter):
     env: dict[str, str]
     tools: dict[str, int]
     hide_result: Callable[[Callable], bool]
+    format_fn: Callable[[rt.Function, int], str]
 
-    def __init__(self, hide_result: Callable[[Callable], bool]) -> None:
+    def __init__(
+        self,
+        hide_result: Callable[[Callable], bool],
+        format_fn: Callable[[rt.Function, int], str] = lambda tool, index: (
+            f"<{tool.name}_{index}/>"
+        ),
+    ) -> None:
         self.env = {}
         self.tools = {}
         self.hide_result = hide_result
+        self.format_fn = format_fn
 
     def format(
         self,
@@ -42,7 +50,7 @@ class VariableFormatter(types.Formatter):
 
         def make_new_var() -> str:
             assert tool_name in self.tools, f"Tool {tool_name} was not added to tools."
-            var = f"<{tool_name}_{self.tools[tool_name]}/>"
+            var = self.format_fn(tool, self.tools[tool_name])
             self.tools[tool_name] += 1
             return var
 
@@ -112,8 +120,12 @@ class IFCFormatter(types.Formatter):
         def hide_result(tool: Callable) -> bool:
             return not ifc.permitted_tool_result(tool, get_model_context())
 
+        def format_fn(tool: rt.Function, index: int) -> str:
+            label = ifc.tool_source_label(tool.run)
+            return f"<{tool.name}_{index}:{label}/>"
+
         self.env = {}
-        self.variable_formatter = VariableFormatter(hide_result)
+        self.variable_formatter = VariableFormatter(hide_result, format_fn)
         self.get_model_context = get_model_context
 
     def format(self, tool: rt.Function, result: rt.FunctionReturnType) -> str:

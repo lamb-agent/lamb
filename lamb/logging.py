@@ -1,8 +1,8 @@
-from agentdojo.functions_runtime import FunctionCall
 import logging
 from collections.abc import Sequence
 
 import rich.logging
+from agentdojo.functions_runtime import FunctionCall
 from agentdojo.types import ChatMessage
 
 from lamb import types
@@ -72,9 +72,9 @@ def format_chat_message(identity: types.Identity, role: types.Role, text: str) -
     identity_symbol: str
     match identity:
         case types.Identity.SINGLE:
-            identity_symbol = ":camel:" # dromeda
+            identity_symbol = ":camel:"  # dromeda
         case types.Identity.PRIVILEDGED:
-            identity_symbol = ":video_game:" # game controller
+            identity_symbol = ":video_game:"  # game controller
         case types.Identity.QUARANTINED:
             identity_symbol = ":no_entry:"
         case types.Identity.BOUNDED:

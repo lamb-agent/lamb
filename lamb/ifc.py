@@ -1,7 +1,8 @@
+from os import stat
 import typing
 from enum import Enum
 from functools import reduce
-from typing import Self
+from typing import Self, assert_never
 
 from lamb import tool_categories
 
@@ -51,8 +52,24 @@ class IFCLabel(Enum):
     UL = (Integrity.UNTRUSTED, Confidentiality.LOW)
     UH = (Integrity.UNTRUSTED, Confidentiality.HIGH)
 
-    TOP = UH
-    BOT = TL
+    @staticmethod
+    def bot() -> "IFCLabel":
+        return IFCLabel.TL
+
+    def __str__(self) -> str:
+        """Short tuple representation."""
+
+        match self:
+            case IFCLabel.TL:
+                return "TL"
+            case IFCLabel.TH:
+                return "TH"
+            case IFCLabel.UL:
+                return "UL"
+            case IFCLabel.UH:
+                return "UH"
+            case _:
+                assert_never(self)
 
     def __init__(self, integ: Integrity, conf: Confidentiality) -> None:
         self.integ = integ
@@ -106,7 +123,7 @@ def permitted_tool_call(
     """Tool call check succeeds if the egress using this tool is permitted."""
 
     sink = tool_sink_label(tool)
-    source = reduce(IFCLabel.join, variable_labels, IFCLabel.BOT).join(model_context)
+    source = reduce(IFCLabel.join, variable_labels, IFCLabel.bot()).join(model_context)
     return source.permitted_flow(sink)
 
 
