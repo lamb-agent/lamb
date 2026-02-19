@@ -89,17 +89,6 @@ def loop(
             # this is required for passing the utility checks
             if state.config.tool_llm:
                 object.__delattr__(state.env, "tool_llm")
-            # If this is the final answer to the user,
-            # expand the variables
-            if (
-                state.config.identity == types.Identity.PRIVILEDGED
-                and last_message["content"]
-            ):
-                final_message = last_message["content"][0]["content"]
-                expanded_message = str(
-                    state.config.tool_result_formatter.expand(final_message)
-                )
-                last_message["content"][0]["content"] = expanded_message
             return state
         case _:
             logging.exception(f"Illegal message role: {last_message['role']}")
