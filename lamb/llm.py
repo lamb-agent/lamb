@@ -1,15 +1,16 @@
 import logging
 import sys
 import time
-from dataclasses import replace
+from dataclasses import dataclass
 from enum import Enum
 
 import openai
 import openai.types.chat as openai_types
+from agentdojo.types import ChatMessage
+from openai.types.chat.completion_create_params import ResponseFormat
 
-from lamb import types
 from lamb.openai_llm import OpenAILLM
-from lamb.prompting_llm import PromptingLLM
+from lamb.runtime import Runtime
 
 
 class OllamaModel(Enum):
@@ -28,105 +29,76 @@ class CerebrasModel(Enum):
     LLAMA3 = "llama-3.3-70b"
 
 
-def local_prompting(model: OllamaModel) -> types.Transition:
-    return _new_prompting_llm_openai(
-        model=model.value,
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",  # required, but unused
-    )
+class Llm:
+    """A stateless LLM."""
 
+    llm: OpenAILLM
 
-def local(
-    model: OllamaModel,
-    thinking: openai_types.ChatCompletionReasoningEffort = None,
-) -> types.Transition:
-    return _new_openai(
-        model=model.value,
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",  # required, but unused
-        thinking=thinking,
-    )
-
-
-def gemma(api_key: str) -> types.Transition:
-    return _new_prompting_llm_openai(
-        model="gemma-3-27b-it",
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        api_key=api_key,
-    )
-
-
-def cerebras(model: CerebrasModel, api_key: str) -> types.Transition:
-    return _new_prompting_llm_openai(
-        model=model.value,
-        base_url="https://api.cerebras.ai/v1",
-        api_key=api_key,
-    )
-
-
-def _new_prompting_llm_openai(
-    model: str,
-    base_url: str,
-    api_key: str,
-) -> types.Transition:
-    """Instantiate prompting llm with openai client."""
-
-    client = openai.OpenAI(
-        base_url=base_url,
-        api_key=api_key,
-    )
-    llm = PromptingLLM(OpenAILLM(client=client, model=model))
-    return _make_retry(llm.next)
-
-
-def _new_openai(
-    model: str,
-    base_url: str,
-    api_key: str,
-    thinking: openai_types.ChatCompletionReasoningEffort,
-) -> types.Transition:
-    """Instantiate tool-calling llm with openai client."""
-
-    client = openai.OpenAI(
-        base_url=base_url,
-        api_key=api_key,
-    )
-    llm = OpenAILLM(
-        client=client,
-        model=model,
-        reasoning_effort=thinking,
-    )
-
-    def llm_next(state: types.State) -> types.State:
-        _, runtime, env, messages, _ = llm.query(
-            "",
-            state.runtime,
-            state.env,
-            state.messages,
-            {"response_format": state.response_format},
+    def __init__(
+        self,
+        model: str,
+        base_url: str,
+        api_key: str,
+        reasoning: openai_types.ChatCompletionReasoningEffort,
+    ) -> None:
+        client = openai.OpenAI(
+            base_url=base_url,
+            api_key=api_key,
         )
-        return replace(state, runtime=runtime, env=env, messages=messages)
+        llm = OpenAILLM(
+            client=client,
+            model=model,
+            reasoning_effort=reasoning,
+        )
+        self.llm = llm
 
-    return _make_retry(llm_next)
-
-
-def _make_retry(llm: types.Transition) -> types.Transition:
-    """Make the llm retry on rate limit exhaustion."""
-
-    def retry(state: types.State, timeout: int = 30) -> types.State:
-        """Retries calling the llm if rate limit is exceeded.
-
-        Fails gracefully, if connection couldn't be established.
-        """
-
+    def prompt(
+        self,
+        runtime: Runtime,
+        messages: list[ChatMessage],
+        response_format: ResponseFormat,
+    ) -> ChatMessage:
         try:
-            return llm(state)
+            _, _, _, msgs, _ = self.llm.query(
+                "",
+                runtime.functions_runtime,
+                runtime.env,
+                messages,
+                {"response_format": response_format},
+            )
+            assert len(msgs) == len(messages) + 1
+            return messages[-1]
         except openai.RateLimitError:
             logging.exception("Google API exhausted, waiting...")
-            time.sleep(timeout)
-            return retry(state)
+            time.sleep(30)
+            return self.prompt(runtime, messages, response_format)
         except openai.APIConnectionError:
             logging.exception("Failed to connect")
             sys.exit(1)
 
-    return retry
+    @staticmethod
+    def local(
+        model: OllamaModel,
+        reasoning: openai_types.ChatCompletionReasoningEffort = None,
+    ) -> "Llm":
+        return Llm(
+            model.value,
+            "http://localhost:11434/v1",
+            api_key="ollama",
+            reasoning=reasoning,
+        )
+
+
+@dataclass
+class ToolLlm:
+    """An LLM with tools available in the runtime."""
+
+    llm: Llm
+    runtime: Runtime
+
+    def prompt(
+        self,
+        messages: list[ChatMessage],
+        response_format: ResponseFormat,
+    ) -> ChatMessage:
+        return self.llm.prompt(self.runtime, messages, response_format)

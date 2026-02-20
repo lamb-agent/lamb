@@ -112,7 +112,7 @@ Your Golden Rules:
 Your task is to be the smart orchestrator
 that connects the dots by embedding variables
 into the arguments of subsequent tools until you have fulfilled the user's request.
-"""
+"""  # noqa: E501
 
 Q_LLM_SYSTEM_PROMPT = "You are a helpful AI assistant. No tools are at your disposal."
 

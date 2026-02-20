@@ -1,23 +1,14 @@
-import os
-import sys
-
 import agentdojo.logging
 from agentdojo import agent_pipeline as pipeline
 from agentdojo import benchmark as bench
 from agentdojo import task_suite
 
 from lamb import (
-    controller,
-    ifc,
     llm,
     logging,
-    prompts,
-    tool_categories,
-    tool_exec,
-    tool_llm,
-    tool_result,
     types,
 )
+from lamb.agent import Agent
 
 
 def main() -> None:
@@ -28,7 +19,7 @@ def main() -> None:
         for suite_name, suite in suites.items():
             logging.debug(f"Executing suite {suite_name}")
             # retain_tasks(suite, ["user_task_0"])
-            lamb_pipeline = create_pipeline(suite)
+            lamb_pipeline = create_pipeline()
             results = bench.benchmark_suite_without_injections(
                 suite=suite,
                 agent_pipeline=lamb_pipeline,
@@ -39,41 +30,12 @@ def main() -> None:
             print(f"Utility of {suite_name}: {utility}")
 
 
-def create_pipeline(suite: task_suite.TaskSuite) -> pipeline.BasePipelineElement:
-    suite_tools = {tool.run for tool in suite.tools}
-    read_only_fns = tool_categories.READ_ONLY & suite_tools
-
-    try:
-        gemini_key = os.environ["LAMB_GEMINI_API_KEY"]
-    except KeyError:
-        logging.exception("LAMB_GEMINI_API_KEY env var not set")
-        sys.exit(1)
-    try:
-        cerebras_key = os.environ["LAMB_CEREBRAS_API_KEY"]
-    except KeyError:
-        logging.exception("LAMB_CEREBRAS_API_KEY env var not set")
-        sys.exit(1)
-    # model = llm.gemma(gemini_key)
-    # model=llm.cerebras(llm.CerebrasModel.GPT_OSS, cerebras_key)
-    model = llm.local(llm.OllamaModel.GPT_OSS_120B, thinking="medium")
-    config = types.Config(
-        identity=types.Identity.PRIVILEDGED,
-        llm=model,
-        system_prompt=prompts.P_LLM_SYSTEM_PROMPT,
-        tool_executor=tool_exec.default,
-        tool_result_formatter=tool_result.IFCFormatter(
-            get_model_context=ifc.IFCLabel.bot  # context doesn't change
-        ),
-        tool_llm=tool_llm.bounded_llm,
-        read_only_tools=read_only_fns,
+def create_pipeline() -> pipeline.BasePipelineElement:
+    model = llm.Llm.local(llm.OllamaModel.GPT_OSS_120B, reasoning="medium")
+    agent_loop = types.ADAgentLoop(
+        lambda runtime, env: Agent.lamb_no_ifc(model, runtime, env)
     )
-    agent_loop = types.ADAgentLoop(init=controller.init(config), loop=controller.loop)
-    lamb_pipeline = pipeline.AgentPipeline(
-        [
-            pipeline.InitQuery(),
-            agent_loop,
-        ]
-    )
+    lamb_pipeline = pipeline.AgentPipeline([agent_loop])
     # This is an inconsistency in AgentDojo.
     # The benchmark requires the attribute `name` to be set,
     # but the `AgentPipeline` class doesn't have it.

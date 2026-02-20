@@ -281,13 +281,14 @@ If you think you will need to call multiple tools in multiple stages, but you do
 
     def next(
         self,
-        state: types.State,
-    ) -> types.State:
+        messages: list[ChatMessage],
+        runtime: rt.FunctionsRuntime,
+    ) -> ChatMessage:
         adapted_messages = [
             self._tool_message_to_user_message(message)
             if message["role"] == "tool"
             else message
-            for message in state.messages
+            for message in messages
         ]
         # TODO: this is specific to Together's API. Look into improving it.
         openai_messages = [
@@ -295,9 +296,9 @@ If you think you will need to call multiple tools in multiple stages, but you do
             for message in adapted_messages
             if message["role"] != "system"
         ]
-        system_message, other_messages = self._get_system_message(state.messages)
+        system_message, other_messages = self._get_system_message(messages)
         system_message = self._make_tools_prompt(
-            system_message, list(state.runtime.functions.values())
+            system_message, list(runtime.functions.values())
         )
         if system_message is not None:
             converted_system_message = ChatUserMessage(
@@ -323,10 +324,10 @@ If you think you will need to call multiple tools in multiple stages, but you do
             ],
             tool_calls=[],
         )
-        if len(state.runtime.functions) == 0 or "<function-call>" not in (
+        if len(runtime.functions) == 0 or "<function-call>" not in (
             get_text_content_as_str(output["content"] or [])
         ):
-            return replace(state, messages=[*state.messages, output])
+            return output
         for _ in range(self._MAX_ATTEMPTS):
             try:
                 output = self._parse_model_output(completion.choices[0].message)
@@ -351,4 +352,4 @@ If you think you will need to call multiple tools in multiple stages, but you do
                     None,
                     self.llm.temperature,
                 )
-        return replace(state, messages=[*state.messages, output])
+        return output

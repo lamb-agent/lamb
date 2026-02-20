@@ -12,8 +12,6 @@ from agentdojo.default_suites.v1.tools import (
     web,
 )
 
-from lamb import tools
-
 BANKING_CLIENT: set[typing.Callable] = {
     banking_client.get_balance,
     banking_client.get_iban,
@@ -22,8 +20,6 @@ BANKING_CLIENT: set[typing.Callable] = {
     banking_client.next_id,
     banking_client.schedule_transaction,
     banking_client.send_money,
-    banking_client.set_balance,
-    banking_client.set_iban,
     banking_client.update_scheduled_transaction,
 }
 
@@ -153,8 +149,6 @@ READ_ONLY: set[typing.Callable] = {
     slack.get_users_in_channel,
     slack.read_channel_messages,
     slack.read_inbox,
-    tools.query_llm,
-    tools.query_llm_structured,
     travel_booking_client.check_restaurant_opening_hours,
     travel_booking_client.get_all_car_rental_companies_in_city,
     travel_booking_client.get_all_hotels_in_city,
@@ -186,8 +180,6 @@ However, they can still taint the context or leak information.
 STATE_CHANGING: set[typing.Callable] = {
     banking_client.schedule_transaction,
     banking_client.send_money,
-    banking_client.set_balance,
-    banking_client.set_iban,
     banking_client.update_scheduled_transaction,
     calendar_client.add_calendar_event_participants,
     calendar_client.cancel_calendar_event,
@@ -222,8 +214,6 @@ TRUSTED_SOURCE: set[typing.Callable] = {
     calendar_client.get_current_day,
     banking_client.schedule_transaction,
     banking_client.send_money,
-    banking_client.set_balance,
-    banking_client.set_iban,
     banking_client.update_scheduled_transaction,
     calendar_client.cancel_calendar_event,
     email_client.delete_email,
@@ -233,7 +223,6 @@ TRUSTED_SOURCE: set[typing.Callable] = {
     slack.send_channel_message,
     slack.invite_user_to_slack,
     slack.remove_user_from_slack,
-    tools.query_llm_structured,
     user_account.update_password,
     web.post_webpage,
     web.download_file,
@@ -269,7 +258,6 @@ UNTRUSTED_SOURCE: set[typing.Callable] = {
     slack.get_users_in_channel,
     slack.read_channel_messages,
     slack.read_inbox,
-    tools.query_llm,
     travel_booking_client.check_restaurant_opening_hours,
     travel_booking_client.get_all_car_rental_companies_in_city,
     travel_booking_client.get_all_hotels_in_city,
@@ -351,8 +339,6 @@ Everything that is private user or company internal information is considered se
 LOW_CONF_SOURCE: set[typing.Callable] = {
     banking_client.get_iban,
     banking_client.next_id,
-    banking_client.set_balance,
-    banking_client.set_iban,
     calendar_client.cancel_calendar_event,
     calendar_client.get_current_day,
     email_client.delete_email,
@@ -361,8 +347,6 @@ LOW_CONF_SOURCE: set[typing.Callable] = {
     slack.remove_user_from_slack,
     slack.send_direct_message,
     slack.send_channel_message,
-    tools.query_llm,
-    tools.query_llm_structured,
     travel_booking_client.check_restaurant_opening_hours,
     travel_booking_client.get_all_car_rental_companies_in_city,
     travel_booking_client.get_all_hotels_in_city,
@@ -450,8 +434,6 @@ HIGH_CONF_SINK: set[typing.Callable] = {
 This means no confidential information can be leaked."""
 
 LOW_CONF_SINK: set[typing.Callable] = {
-    tools.query_llm,
-    tools.query_llm_structured,
     # In a general domain, even GET queries would be considered a low conf sink
     web.post_webpage,
 }
@@ -461,8 +443,6 @@ Only public information may be sent."""
 ARG_CONF_SINK: set[typing.Callable] = {
     banking_client.schedule_transaction,
     banking_client.send_money,
-    banking_client.set_balance,
-    banking_client.set_iban,
     banking_client.update_scheduled_transaction,
     calendar_client.add_calendar_event_participants,
     calendar_client.cancel_calendar_event,

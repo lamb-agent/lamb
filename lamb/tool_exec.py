@@ -1,14 +1,16 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/tool_execution.py
 from ast import literal_eval
-from dataclasses import replace
+from dataclasses import dataclass
 
-from agentdojo.agent_pipeline.llms.google_llm import EMPTY_FUNCTION_NAME
+import agentdojo.functions_runtime as rt
 from agentdojo.types import (
+    ChatMessage,
     ChatToolResultMessage,
     text_content_block_from_string,
 )
 
 from lamb import ifc, types
+from lamb.runtime import Runtime
 
 
 def is_string_list(s: str) -> bool:
@@ -19,86 +21,61 @@ def is_string_list(s: str) -> bool:
         return False
 
 
-def default(state: types.State) -> types.State:
-    """Execute the tool calls in the last messages for which tool execution is required.
+@dataclass
+class ToolExec:
+    runtime: Runtime
+    formatter: types.Formatter
 
-    Args:
-        state: the last state
-
-    """
-
-    if len(state.messages) == 0:
-        return state
-    last_message = state.messages[-1]
-    if last_message["role"] != "assistant":
-        return state
-    if last_message["tool_calls"] is None or len(last_message["tool_calls"]) == 0:
-        return state
-
-    tool_call_results = []
-    for tool_call in last_message["tool_calls"]:
-        if tool_call.function == EMPTY_FUNCTION_NAME:
-            tool_call_results.append(
-                ChatToolResultMessage(
-                    role="tool",
-                    content=[text_content_block_from_string("")],
-                    tool_call_id=tool_call.id,
-                    tool_call=tool_call,
-                    error="Empty function name provided. "
-                    + "Provide a valid function name.",
+    def exec(self, calls: list[rt.FunctionCall]) -> list[ChatMessage]:
+        tool_call_results = []
+        for tool_call in calls:
+            if tool_call.function not in self.runtime.tools():
+                tool_call_results.append(
+                    ChatToolResultMessage(
+                        role="tool",
+                        content=[text_content_block_from_string("")],
+                        tool_call_id=tool_call.id,
+                        tool_call=tool_call,
+                        error=f"Invalid tool {tool_call.function} provided.",
+                    )
                 )
-            )
-            continue
-        if tool_call.function not in (
-            tool.name for tool in state.runtime.functions.values()
-        ):
-            tool_call_results.append(
-                ChatToolResultMessage(
-                    role="tool",
-                    content=[text_content_block_from_string("")],
-                    tool_call_id=tool_call.id,
-                    tool_call=tool_call,
-                    error=f"Invalid tool {tool_call.function} provided.",
-                )
-            )
-            continue
+                continue
 
-        # Converts type of input lists from string to list type
-        for arg_k, arg_v in tool_call.args.items():
-            if isinstance(arg_v, str) and is_string_list(arg_v):
-                tool_call.args[arg_k] = literal_eval(arg_v)
+            # Converts type of input lists from string to list type
+            for arg_k, arg_v in tool_call.args.items():
+                if isinstance(arg_v, str) and is_string_list(arg_v):
+                    tool_call.args[arg_k] = literal_eval(arg_v)
 
-        tool = state.runtime.functions[tool_call.function]
-        args = state.config.tool_result_formatter.expand(tool, tool_call.args)
-        tool_call_result, error = state.runtime.run_function(
-            state.env, tool_call.function, args
-        )
-        tool_call_id = tool_call.id
-        try:
-            formatted_tool_call_result = state.config.tool_result_formatter.format(
-                tool,
-                tool_call_result,
-            )
-            tool_call_results.append(
-                ChatToolResultMessage(
-                    role="tool",
-                    content=[
-                        text_content_block_from_string(formatted_tool_call_result)
-                    ],
-                    tool_call_id=tool_call_id,
-                    tool_call=tool_call,
-                    error=error,
-                )
-            )
-        except ifc.IFCError as e:
-            tool_call_results.append(
-                ChatToolResultMessage(
-                    role="tool",
-                    content=[],
-                    tool_call_id=tool_call_id,
-                    tool_call=tool_call,
-                    error=str(e),
-                )
-            )
+            tool = self.runtime.get_function(tool_call.function)
+            args = self.formatter.expand(tool, tool_call.args)
 
-    return replace(state, messages=[*state.messages, *tool_call_results])
+            tool_call_result, error = self.runtime.exec(tool_call.function, args)
+            tool_call_id = tool_call.id
+            try:
+                formatted_tool_call_result = self.formatter.format(
+                    tool,
+                    tool_call_result,
+                )
+                tool_call_results.append(
+                    ChatToolResultMessage(
+                        role="tool",
+                        content=[
+                            text_content_block_from_string(formatted_tool_call_result)
+                        ],
+                        tool_call_id=tool_call_id,
+                        tool_call=tool_call,
+                        error=error,
+                    )
+                )
+            except ifc.IFCError as e:
+                tool_call_results.append(
+                    ChatToolResultMessage(
+                        role="tool",
+                        content=[],
+                        tool_call_id=tool_call_id,
+                        tool_call=tool_call,
+                        error=str(e),
+                    )
+                )
+
+        return tool_call_results

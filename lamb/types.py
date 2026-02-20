@@ -1,25 +1,18 @@
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 import agentdojo.types as ad_types
-from openai.types.chat.completion_create_params import ResponseFormat
 from openai.types.shared_params import ResponseFormatText
 
-type Transition = Callable[[State], State]
-"""Go from one state to the next."""
-type Init = Callable[
-    [rt.FunctionsRuntime, rt.TaskEnvironment, Sequence[ad_types.ChatMessage]], State
-]
-"""Produce an initial state from the runtime, env and messages given by AgentDojo"""
-type StructuredQuery = Callable[[str, dict], dict]
-type TextQuery = Callable[[str], str]
-type Query = TextQuery | StructuredQuery
-"""Query an LLM or Agent with a prompt and get a response"""
-type ToolLLM = Callable[[Transition, set[Callable], rt.TaskEnvironment], Query]
+from lamb.agent import Agent
+
+type CallLLM = Callable[[list[ad_types.ChatMessage]], ad_types.ChatMessage]
+type CallTools = Callable[[list[rt.FunctionCall]], list[ad_types.ChatMessage]]
+type CheckIFC = Callable[[rt.Function, Mapping[str, rt.FunctionCallArgTypes]], None]
+type AgentFn = Callable[[rt.FunctionsRuntime, rt.TaskEnvironment], Agent]
 
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
 
@@ -52,41 +45,13 @@ class Role(Enum):
     SYSTEM = "system"
 
 
-@dataclass
-class Config:
-    identity: Identity
-    system_prompt: str
-    llm: Transition
-    tool_executor: Transition
-    tool_result_formatter: Formatter
-    tool_llm: ToolLLM | None
-    read_only_tools: set[Callable]
-
-
-@dataclass
-class State:
-    runtime: rt.FunctionsRuntime
-    env: rt.TaskEnvironment
-    messages: Sequence[ad_types.ChatMessage]
-    config: Config
-    response_format: ResponseFormat
-
-    def next_llm(self) -> "State":
-        return self.config.llm(self)
-
-    def next_tool(self) -> "State":
-        return self.config.tool_executor(self)
-
-
 class ADAgentLoop(pipeline.BasePipelineElement):
-    """Transforms a transition function into a BasePipelineElement."""
+    """Wrap an agent as a BasePipelineElement."""
 
-    init: Init
-    loop: Transition
+    agent_fn: AgentFn
 
-    def __init__(self, init: Init, loop: Transition) -> None:
-        self.init = init
-        self.loop = loop
+    def __init__(self, agent_fn: AgentFn) -> None:
+        self.agent_fn = agent_fn
 
     def query(
         self,
@@ -102,13 +67,13 @@ class ADAgentLoop(pipeline.BasePipelineElement):
         Sequence[ad_types.ChatMessage],
         dict,
     ]:
-        initial_state = self.init(runtime, env, messages)
-        final_state = self.loop(initial_state)
+        agent = self.agent_fn(runtime, env)
+        messages = agent.prompt(query)
         return (
             query,
-            final_state.runtime,
-            final_state.env,
-            final_state.messages,
+            runtime,
+            env,
+            messages,
             extra_args,
         )
 
