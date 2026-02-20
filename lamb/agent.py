@@ -176,3 +176,89 @@ class Agent:
             system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,
             formatter=lamb.tool_result.VariableFormatter.integrity_based(),
         )
+
+    @staticmethod
+    def lamb_dynamic_ifc(
+        model: lamb.llm.Llm,
+        functions_runtime: rt.FunctionsRuntime,
+        env: rt.TaskEnvironment,
+    ) -> "Agent":
+        all_fns = functions_runtime.functions.values()
+        read_only_fns = [
+            fn
+            for fn in all_fns
+            if fn.run in lamb.tool_categories.READ_ONLY
+            and fn.run in lamb.tool_categories.UNTRUSTED_SINK
+        ]
+        # no nested llms
+        b_runtime = lamb.runtime.Runtime.default(
+            rt.FunctionsRuntime(read_only_fns), env
+        )
+
+        def b_on_context_change(ifc_label: lamb.ifc.IFCLabel) -> None:
+            """Restrict B-LLM tools to read-only high conf sinks."""
+
+            assert ifc_label == lamb.ifc.IFCLabel.UH, "B-LLM label must be UH."
+            high_conf_sink = [
+                fn
+                for fn in read_only_fns
+                if fn.run in lamb.tool_categories.HIGH_CONF_SINK
+            ]
+            b_runtime.set_functions(high_conf_sink)
+
+        b_ifc_checker = lamb.ifc.IFCChecker(
+            model_context=lamb.ifc.IFCLabel.UL,
+            secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
+            on_model_context_change=b_on_context_change,
+        )
+        b_llm = Agent.bounded(
+            model,
+            b_runtime,
+            lamb.tool_result.VariableFormatter.ifc(b_ifc_checker),
+        )
+        custom_functions = [
+            lamb.query_llm.make_query_llm_fn(b_llm),
+            lamb.query_llm.make_query_llm_structured_fn(b_llm),
+        ]
+        runtime = lamb.runtime.Runtime(functions_runtime, env, custom_functions)
+
+        def p_on_context_change(ifc_label: lamb.ifc.IFCLabel) -> None:
+            """Restrict P-LLM tools to high conf sinks."""
+
+            assert ifc_label == lamb.ifc.IFCLabel.TH, "P-LLM label must be TH."
+            high_conf_sink_fns = [
+                fn for fn in all_fns if fn.run in lamb.tool_categories.HIGH_CONF_SINK
+            ]
+            read_only_high_conf_fns = [
+                fn
+                for fn in high_conf_sink_fns
+                if fn.run in lamb.tool_categories.READ_ONLY
+            ]
+            b_runtime.set_functions(read_only_high_conf_fns)
+            b_llm = Agent.bounded(
+                model,
+                b_runtime,
+                # at the top of the lattice there is no point in hiding variables
+                lamb.tool_result.VariableFormatter.none(),
+            )
+            custom_functions = [
+                lamb.query_llm.make_query_llm_fn(b_llm),
+                lamb.query_llm.make_query_llm_structured_fn(b_llm),
+            ]
+            high_conf_sink_fns.extend(custom_functions)
+
+            runtime.set_functions(high_conf_sink_fns)
+
+        p_ifc_checker = lamb.ifc.IFCChecker(
+            model_context=lamb.ifc.IFCLabel.TL,
+            secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
+            on_model_context_change=p_on_context_change,
+        )
+
+        return Agent(
+            model=model,
+            runtime=runtime,
+            identity=lamb.types.Identity.PRIVILEDGED,
+            system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,
+            formatter=lamb.tool_result.VariableFormatter.ifc(p_ifc_checker),
+        )
