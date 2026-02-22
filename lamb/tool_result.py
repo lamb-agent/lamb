@@ -97,11 +97,10 @@ class VariableFormatter(types.Formatter):
         return VariableFormatter(hide_result=lambda _: False)
 
     @staticmethod
-    def integrity_based() -> "VariableFormatter":
+    def integrity_based(query_llm: Callable | None = None) -> "VariableFormatter":
         """Create new variable formatter that hides results from untrusted sources."""
 
-        # TODO: what about query_llm
-        untrusted_source_fns = tool_categories.UNTRUSTED_SOURCE
+        untrusted_source_fns = tool_categories.UNTRUSTED_SOURCE | {query_llm}
 
         return VariableFormatter(hide_result=untrusted_source_fns.__contains__)
 

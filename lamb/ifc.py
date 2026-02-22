@@ -92,84 +92,62 @@ class IFCLabel(Enum):
         return type(self)(self.integ, Confidentiality.HIGH)
 
 
-def tool_sink_label(tool: typing.Callable) -> IFCLabel:
-    conf = (
-        Confidentiality.HIGH
-        if tool in tool_categories.HIGH_CONF_SINK
-        else Confidentiality.LOW  # Currently, .ARG_CONF is LOW conf
-    )
-    integ = (
-        Integrity.TRUSTED
-        if tool in tool_categories.TRUSTED_SINK
-        else Integrity.UNTRUSTED
-    )
-    return IFCLabel(integ, conf)
-
-
-def tool_source_label(tool: typing.Callable) -> IFCLabel:
-    conf = (
-        Confidentiality.HIGH
-        if tool in tool_categories.HIGH_CONF_SOURCE
-        else Confidentiality.LOW
-    )
-    integ = (
-        Integrity.TRUSTED
-        if tool in tool_categories.TRUSTED_SOURCE
-        else Integrity.UNTRUSTED
-    )
-    return IFCLabel(integ, conf)
-
-
-def permitted_tool_call(
-    tool: typing.Callable,
-    model_context: IFCLabel,
-    variable_labels: set[IFCLabel],
-) -> bool:
-    """Tool call check succeeds if the egress using this tool is permitted."""
-
-    sink = tool_sink_label(tool)
-    source = reduce(IFCLabel.join, variable_labels, model_context)
-    return source.permitted_flow(sink)
-
-
-def permitted_tool_result(
-    tool: typing.Callable,
-    model_context: IFCLabel,
-) -> bool:
-    """Tool result check succeeds if the ingress using this tool is permitted."""
-
-    source = tool_source_label(tool)
-    sink = model_context
-    return source.permitted_flow(sink)
-
-
 class SecretHandling(Enum):
     DYNAMIC = "dynamic"
     STATIC = "static"
 
 
 class IFCChecker:
-    model_context_label: IFCLabel
+    model_context: IFCLabel
     var_labels: dict[str, IFCLabel]
     secret_handling: SecretHandling
     on_model_context_change: Callable[[IFCLabel], None]
+    tool_sink_label: Callable[[Callable], IFCLabel]
+    tool_source_label: Callable[[Callable], IFCLabel]
 
     def __init__(
         self,
         model_context: IFCLabel,
+        tool_sink_label: Callable[[Callable], IFCLabel],
+        tool_source_label: Callable[[Callable], IFCLabel],
         secret_handling: SecretHandling = SecretHandling.STATIC,
         on_model_context_change: Callable[[IFCLabel], None] = lambda label: None,  # noqa: ARG005
     ) -> None:
         self.var_labels = {}
-        self.model_context_label = model_context
+        self.model_context = model_context
+        self.tool_sink_label = tool_sink_label
+        self.tool_source_label = tool_source_label
         self.secret_handling = secret_handling
         self.on_model_context_change = on_model_context_change
 
+    def permitted_tool_call(
+        self,
+        tool: typing.Callable,
+        model_context: IFCLabel,
+        variable_labels: set[IFCLabel],
+    ) -> bool:
+        """Tool call check succeeds if the egress using this tool is permitted."""
+
+        sink = self.tool_sink_label(tool)
+        source = reduce(IFCLabel.join, variable_labels, model_context)
+        return source.permitted_flow(sink)
+
+    def permitted_tool_result(
+        self,
+        tool: typing.Callable,
+        model_context: IFCLabel,
+    ) -> bool:
+        """Tool result check succeeds if the ingress using this tool is permitted."""
+
+        source = self.tool_source_label(tool)
+        sink = model_context
+        return source.permitted_flow(sink)
+
     def hide_result(self, tool: Callable) -> bool:
-        return not permitted_tool_result(tool, self.model_context_label)
+        return not self.permitted_tool_result(tool, self.model_context)
 
     def format_fn(self, tool: rt.Function, index: int) -> str:
-        label = tool_source_label(tool.run)
+        label = self.tool_source_label(tool.run)
         var = f"<{tool.name}_{index}:{label}/>"
         self.var_labels[var] = label
         return var
@@ -201,19 +179,19 @@ class IFCChecker:
 
         for name, arg in args.items():
             variable_labels = {self.var_labels[var] for var in find_vars(arg)}
-            if not permitted_tool_call(
-                tool.run, self.model_context_label, variable_labels
+            if not self.permitted_tool_call(
+                tool.run, self.model_context, variable_labels
             ):
                 if (
                     self.secret_handling == SecretHandling.DYNAMIC
-                    and permitted_tool_call(
+                    and self.permitted_tool_call(
                         tool.run,
-                        self.model_context_label.upgrade_conf(),
+                        self.model_context.upgrade_conf(),
                         variable_labels,
                     )
                 ):
-                    self.model_context_label = self.model_context_label.upgrade_conf()
-                    self.on_model_context_change(self.model_context_label)
+                    self.model_context = self.model_context.upgrade_conf()
+                    self.on_model_context_change(self.model_context)
                     continue
 
                 raise IFCError(

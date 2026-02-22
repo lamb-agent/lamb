@@ -99,17 +99,17 @@ class Agent:
         env: rt.TaskEnvironment,
     ) -> "Agent":
         q_llm = Agent.quarantined(model)
-        custom_functions = [
-            lamb.query_llm.make_query_llm_fn(q_llm),
-            lamb.query_llm.make_query_llm_structured_fn(q_llm),
-        ]
+        query_llm = lamb.query_llm.make_query_llm_fn(q_llm)
+        query_llm_structured = lamb.query_llm.make_query_llm_structured_fn(q_llm)
 
         return Agent(
             model=model,
-            runtime=lamb.runtime.Runtime(functions_runtime, env, custom_functions),
+            runtime=lamb.runtime.Runtime(
+                functions_runtime, env, [query_llm, query_llm_structured]
+            ),
             identity=lamb.types.Identity.PRIVILEDGED,
             system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,  # TODO: need dedicated
-            formatter=lamb.tool_result.VariableFormatter.integrity_based(),
+            formatter=lamb.tool_result.VariableFormatter.integrity_based(query_llm.run),
         )
 
     @staticmethod
@@ -164,17 +164,17 @@ class Agent:
             lamb.runtime.Runtime.default(rt.FunctionsRuntime(read_only_fns), env),
             lamb.tool_result.VariableFormatter.integrity_based(),
         )
-        custom_functions = [
-            lamb.query_llm.make_query_llm_fn(b_llm),
-            lamb.query_llm.make_query_llm_structured_fn(b_llm),
-        ]
+        query_llm = lamb.query_llm.make_query_llm_fn(b_llm)
+        query_llm_structured = lamb.query_llm.make_query_llm_structured_fn(b_llm)
 
         return Agent(
             model=model,
-            runtime=lamb.runtime.Runtime(functions_runtime, env, custom_functions),
+            runtime=lamb.runtime.Runtime(
+                functions_runtime, env, [query_llm, query_llm_structured]
+            ),
             identity=lamb.types.Identity.PRIVILEDGED,
             system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,
-            formatter=lamb.tool_result.VariableFormatter.integrity_based(),
+            formatter=lamb.tool_result.VariableFormatter.integrity_based(query_llm.run),
         )
 
     @staticmethod
@@ -206,9 +206,37 @@ class Agent:
             ]
             b_runtime.set_functions(high_conf_sink)
 
+        def b_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
+            integ = (
+                lamb.ifc.Integrity.TRUSTED
+                if tool in lamb.tool_categories.TRUSTED_SOURCE
+                else lamb.ifc.Integrity.UNTRUSTED
+            )
+            conf = (
+                lamb.ifc.Confidentiality.HIGH
+                if tool in lamb.tool_categories.HIGH_CONF_SOURCE
+                else lamb.ifc.Confidentiality.LOW
+            )
+            return lamb.ifc.IFCLabel(integ, conf)
+
+        def b_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
+            integ = (
+                lamb.ifc.Integrity.TRUSTED
+                if tool in lamb.tool_categories.TRUSTED_SINK
+                else lamb.ifc.Integrity.UNTRUSTED
+            )
+            conf = (
+                lamb.ifc.Confidentiality.HIGH
+                if tool in lamb.tool_categories.HIGH_CONF_SINK
+                else lamb.ifc.Confidentiality.LOW
+            )
+            return lamb.ifc.IFCLabel(integ, conf)
+
         b_ifc_checker = lamb.ifc.IFCChecker(
             model_context=lamb.ifc.IFCLabel.UL,
             secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
+            tool_source_label=b_tool_source_label,
+            tool_sink_label=b_tool_sink_label,
             on_model_context_change=b_on_context_change,
         )
         b_llm = Agent.bounded(
@@ -216,11 +244,11 @@ class Agent:
             b_runtime,
             lamb.tool_result.VariableFormatter.ifc(b_ifc_checker),
         )
-        custom_functions = [
-            lamb.query_llm.make_query_llm_fn(b_llm),
-            lamb.query_llm.make_query_llm_structured_fn(b_llm),
-        ]
-        runtime = lamb.runtime.Runtime(functions_runtime, env, custom_functions)
+        query_llm = lamb.query_llm.make_query_llm_fn(b_llm)
+        query_llm_structured = lamb.query_llm.make_query_llm_structured_fn(b_llm)
+        runtime = lamb.runtime.Runtime(
+            functions_runtime, env, [query_llm, query_llm_structured]
+        )
 
         def p_on_context_change(ifc_label: lamb.ifc.IFCLabel) -> None:
             """Restrict P-LLM tools to high conf sinks."""
@@ -249,8 +277,43 @@ class Agent:
 
             runtime.set_functions(high_conf_sink_fns)
 
+        def p_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
+            integ = (
+                lamb.ifc.Integrity.TRUSTED
+                if tool
+                in (lamb.tool_categories.TRUSTED_SOURCE | {query_llm_structured.run})
+                else lamb.ifc.Integrity.UNTRUSTED
+            )
+            conf = (
+                lamb.ifc.Confidentiality.HIGH
+                if tool
+                in lamb.tool_categories.HIGH_CONF_SOURCE
+                # TODO: this is conservative for b_llm as high_conf_source
+                | {query_llm.run, query_llm_structured.run}
+                # TODO: ARG_CONF
+                else lamb.ifc.Confidentiality.LOW
+            )
+            return lamb.ifc.IFCLabel(integ, conf)
+
+        def p_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
+            integ = (
+                lamb.ifc.Integrity.TRUSTED
+                if tool in lamb.tool_categories.TRUSTED_SINK
+                else lamb.ifc.Integrity.UNTRUSTED
+            )
+            conf = (
+                lamb.ifc.Confidentiality.HIGH
+                if tool in lamb.tool_categories.HIGH_CONF_SINK
+                # TODO: conservative estimate, b_llm is low conf sink
+                # TODO: ARG_CONF
+                else lamb.ifc.Confidentiality.LOW
+            )
+            return lamb.ifc.IFCLabel(integ, conf)
+
         p_ifc_checker = lamb.ifc.IFCChecker(
             model_context=lamb.ifc.IFCLabel.TL,
+            tool_sink_label=p_tool_sink_label,
+            tool_source_label=p_tool_source_label,
             secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
             on_model_context_change=p_on_context_change,
         )
