@@ -53,16 +53,18 @@ def make_function(
     parameters: list[tuple[str, str, str]],
     fn: Callable,
 ) -> rt.Function:
-    params = {
+    # NOTE: the typing here is a bit fucked up.
+    # params has the correct type expected inside the create_model function,
+    # but the kwargs-syntax seems to be the bottleneck,
+    # so we have to pass it as dict.
+    params: dict = {
         name: (arg_type, pydantic.Field(description=description))
         for name, arg_type, description in parameters
     }
     return rt.Function(
         name=name,
         description=description,
-        parameters=pydantic.create_model(
-            f"Input schema for {name}", field_definitions=params
-        ),
+        parameters=pydantic.create_model(f"Input schema for {name}", **params),
         dependencies={},
         run=fn,
         full_docstring="",  # unused
