@@ -1,7 +1,8 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import reduce
 
+import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 from agentdojo.types import ChatMessage
 from openai.types.chat.completion_create_params import ResponseFormat
@@ -573,3 +574,39 @@ def basic_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
         else lamb.ifc.Confidentiality.LOW
     )
     return lamb.ifc.IFCLabel(integ, conf)
+
+
+type AgentFn = Callable[[rt.FunctionsRuntime, rt.TaskEnvironment], Agent]
+
+
+class ADAgentLoop(pipeline.BasePipelineElement):
+    """Wrap an agent as a BasePipelineElement."""
+
+    agent_fn: AgentFn
+
+    def __init__(self, agent_fn: AgentFn) -> None:
+        self.agent_fn = agent_fn
+
+    def query(
+        self,
+        query: str,
+        runtime: rt.FunctionsRuntime,
+        env: rt.TaskEnvironment = rt.EmptyEnv(),  # noqa: B008
+        messages: Sequence[ChatMessage] = [],
+        extra_args: dict = {},  # we ignore extra_args # noqa: B006
+    ) -> tuple[
+        str,
+        rt.FunctionsRuntime,
+        rt.TaskEnvironment,
+        Sequence[ChatMessage],
+        dict,
+    ]:
+        agent = self.agent_fn(runtime, env)
+        messages, _ = agent.prompt(query)
+        return (
+            query,
+            runtime,
+            env,
+            messages,
+            extra_args,
+        )

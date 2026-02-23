@@ -4,9 +4,9 @@ from agentdojo import benchmark as bench
 from agentdojo import task_suite
 
 from lamb import (
+    agent,
     llm,
     logging,
-    types,
 )
 from lamb.agent import Agent
 
@@ -32,7 +32,7 @@ def main() -> None:
 
 def create_pipeline() -> pipeline.BasePipelineElement:
     model = llm.Llm.local(llm.OllamaModel.GPT_OSS_120B, reasoning="medium")
-    agent_loop = types.ADAgentLoop(
+    agent_loop = agent.ADAgentLoop(
         lambda runtime, env: Agent.lamb_no_ifc(model, runtime, env)
     )
     lamb_pipeline = pipeline.AgentPipeline([agent_loop])

@@ -7,13 +7,14 @@ import jsonschema
 from agentdojo.types import ChatMessage
 
 from lamb import runtime
-from lamb.agent import Agent
 
 if typing.TYPE_CHECKING:
     from openai.types.chat.completion_create_params import ResponseFormat
 
+    from lamb.agent import Agent
 
-def query_llm(agent: Agent, prompt: str) -> str:
+
+def query_llm(agent: "Agent", prompt: str) -> str:
     history, core = agent.prompt(prompt)
     response = _get_response(history)
     # expand all variables
@@ -23,7 +24,7 @@ def query_llm(agent: Agent, prompt: str) -> str:
 
 
 def query_llm_structured(
-    agent: Agent,
+    agent: "Agent",
     prompt: str,
     schema: dict,
 ) -> dict:
@@ -64,11 +65,11 @@ def make_query_llm_fn(fn: Callable[[str], str]) -> rt.Function:
     )
 
 
-def make_query_llm_fn_with_agent(agent: Agent) -> rt.Function:
+def make_query_llm_fn_with_agent(agent: "Agent") -> rt.Function:
     return make_query_llm_fn(lambda prompt: query_llm(agent, prompt))
 
 
-def make_query_llm_structured_fn_with_agent(agent: Agent) -> rt.Function:
+def make_query_llm_structured_fn_with_agent(agent: "Agent") -> rt.Function:
     return make_query_llm_structured_fn(
         lambda prompt, schema: query_llm_structured(agent, prompt, schema)
     )
