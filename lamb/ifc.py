@@ -6,8 +6,6 @@ from typing import Self, assert_never
 
 import agentdojo.functions_runtime as rt
 
-from lamb import tool_categories
-
 
 class IFCError(Exception):
     pass
@@ -157,28 +155,8 @@ class IFCChecker:
         tool: rt.Function,
         args: Mapping[str, rt.FunctionCallArgTypes],
     ) -> None:
-        def extract_vars(text: str) -> set[str]:
-            return {var for var in self.var_labels if var in text}
-
-        def find_vars(arg: rt.FunctionCallArgTypes) -> set[str]:
-            match arg:
-                case int() | float() | bool() | None:
-                    return set()
-                case str():
-                    return extract_vars(arg)
-                case list():
-                    return reduce(set.union, (find_vars(item) for item in arg))
-                case dict():
-                    return reduce(set.union, (find_vars(item) for item in arg.values()))
-                case rt.FunctionCall():
-                    return reduce(
-                        set.union, (find_vars(item) for item in arg.args.values())
-                    )
-                case _:
-                    assert_never(arg)
-
         for name, arg in args.items():
-            variable_labels = {self.var_labels[var] for var in find_vars(arg)}
+            variable_labels = {self.var_labels[var] for var in self.find_vars(arg)}
             if not self.permitted_tool_call(
                 tool.run, self.model_context, variable_labels
             ):
@@ -197,3 +175,29 @@ class IFCChecker:
                 raise IFCError(
                     f"The argument `{name}` contains a variable that violates the IFC policies"  # noqa: E501
                 )
+
+    def find_vars(self, arg: rt.FunctionCallArgTypes) -> set[str]:
+        """Find a subset of variables from the given set of variables
+        that is present in the given arg.
+        """
+
+        def extract_vars(text: str) -> set[str]:
+            return {var for var in self.var_labels if var in text}
+
+        match arg:
+            case int() | float() | bool() | None:
+                return set()
+            case str():
+                return extract_vars(arg)
+            case list():
+                return reduce(set.union, (self.find_vars(item) for item in arg))
+            case dict():
+                return reduce(
+                    set.union, (self.find_vars(item) for item in arg.values())
+                )
+            case rt.FunctionCall():
+                return reduce(
+                    set.union, (self.find_vars(item) for item in arg.args.values())
+                )
+            case _:
+                assert_never(arg)

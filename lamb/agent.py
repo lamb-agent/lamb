@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import reduce
 
 import agentdojo.functions_runtime as rt
 from agentdojo.types import ChatMessage
@@ -25,7 +26,7 @@ class AgentCore:
     """
 
     runtime: lamb.runtime.Runtime
-    formatter: lamb.types.Formatter
+    formatter: lamb.tool_result.VariableFormatter
 
 
 class Agent:
@@ -95,7 +96,7 @@ class Agent:
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
-        formatter: lamb.types.Formatter,
+        formatter: lamb.tool_result.VariableFormatter,
     ) -> "Agent":
         return Agent(
             model=model,
@@ -285,13 +286,12 @@ class Agent:
                     for fn in all_fns
                     if fn.run in lamb.tool_categories.HIGH_CONF_SINK
                 ]
-                read_only_high_conf_fns = [
-                    fn
-                    for fn in high_conf_sink_fns
-                    if fn.run in lamb.tool_categories.READ_ONLY
-                ]
-
                 # TODO: fix new b_runtime creation
+                # read_only_high_conf_fns = [
+                #     fn
+                #     for fn in high_conf_sink_fns
+                #     if fn.run in lamb.tool_categories.READ_ONLY
+                # ]
                 # b_runtime.set_functions(read_only_high_conf_fns)
                 # b_llm = Agent.bounded(
                 #     model,
@@ -466,6 +466,7 @@ class Agent:
                 return lamb.ifc.IFCLabel.TH
             return basic_tool_sink_label(tool)
 
+        # TODO: must be in make_core
         p_high_ifc_checker = lamb.ifc.IFCChecker(
             model_context=lamb.ifc.IFCLabel.TH,
             tool_sink_label=p_high_tool_sink_label,
@@ -483,26 +484,57 @@ class Agent:
         )
 
         def p_low_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
-            if tool == p_high_query_llm:
-                return lamb.ifc.IFCLabel.UH
-            if tool == p_high_query_llm_structured:
-                return lamb.ifc.IFCLabel.UH
+            if tool not in lamb.tool_categories.ALL:
+                return lamb.ifc.IFCLabel.TH
             return basic_tool_sink_label(tool)
 
         def p_low_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
-            if tool == p_high_query_llm:
-                return lamb.ifc.IFCLabel.UH
-            if tool == p_high_query_llm_structured:
-                return lamb.ifc.IFCLabel.TH
+            if tool not in lamb.tool_categories.ALL:
+                return lamb.ifc.IFCLabel.UH  # TODO: this should be dynamic
             return basic_tool_sink_label(tool)
 
         p_low_ifc_checker = lamb.ifc.IFCChecker(
             model_context=lamb.ifc.IFCLabel.TL,
-            tool_sink_label=basic_tool_sink_label,
-            tool_source_label=b_low_tool_source_label,
+            tool_sink_label=p_low_tool_sink_label,
+            tool_source_label=p_low_tool_source_label,
             secret_handling=lamb.ifc.SecretHandling.STATIC,
         )
-        p_low_runtime = lamb.runtime.Runtime.default(functions_runtime, env)
+
+        def determine_agent(prompt: str) -> Agent:
+            variables = p_low_ifc_checker.find_vars(prompt)
+            labels = {p_low_ifc_checker.var_labels[var] for var in variables}
+            joined_label = reduce(
+                lamb.ifc.IFCLabel.join, labels, p_low_ifc_checker.model_context
+            )
+            agent: Agent
+            match joined_label:
+                case lamb.ifc.IFCLabel.UL:
+                    agent = b_low_llm
+                case lamb.ifc.IFCLabel.UH:
+                    agent = b_high_llm
+                case lamb.ifc.IFCLabel.TH:
+                    agent = p_high_llm
+                case lamb.ifc.IFCLabel.TL:
+                    # this case shouldn't happen if the LLM is smart
+                    agent = p_high_llm
+            return agent
+
+        def p_low_query_llm_tool(prompt: str) -> str:
+            agent = determine_agent(prompt)
+            return lamb.query_llm.query_llm(agent, prompt)
+
+        def p_low_query_llm_structured_tool(prompt: str, json_schema: dict) -> dict:
+            agent = determine_agent(prompt)
+            return lamb.query_llm.query_llm_structured(agent, prompt, json_schema)
+
+        p_low_query_llm = lamb.query_llm.make_query_llm_fn(p_low_query_llm_tool)
+        p_low_query_llm_structured = lamb.query_llm.make_query_llm_structured_fn(
+            p_low_query_llm_structured_tool
+        )
+
+        p_low_runtime = lamb.runtime.Runtime(
+            functions_runtime, env, [p_low_query_llm, p_low_query_llm_structured]
+        )
 
         return Agent(
             model=model,
