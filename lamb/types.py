@@ -68,7 +68,7 @@ class ADAgentLoop(pipeline.BasePipelineElement):
         dict,
     ]:
         agent = self.agent_fn(runtime, env)
-        messages = agent.prompt(query)
+        messages, _ = agent.prompt(query)
         return (
             query,
             runtime,

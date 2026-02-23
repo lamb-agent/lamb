@@ -1,27 +1,28 @@
 import json
 import typing
+from collections.abc import Callable
 
 import agentdojo.functions_runtime as rt
 import jsonschema
 from agentdojo.types import ChatMessage
 
 from lamb import runtime
-from lamb.agent import Agent
+from lamb.agent import Agent, AgentCore
 
 if typing.TYPE_CHECKING:
     from openai.types.chat.completion_create_params import ResponseFormat
 
 
-def _query_llm(agent: Agent, prompt: str) -> str:
-    history = agent.prompt(prompt)
-    return _get_response(history)
+def query_llm(agent: Agent, prompt: str) -> tuple[str, AgentCore]:
+    history, core = agent.prompt(prompt)
+    return _get_response(history), core
 
 
-def _query_llm_structured(
+def query_llm_structured(
     agent: Agent,
     prompt: str,
     schema: dict,
-) -> dict:
+) -> tuple[dict, AgentCore]:
     if not _check_schema(schema):
         raise ValueError("There must be no strings in the schema.")
     response_format: ResponseFormat = {
@@ -33,16 +34,16 @@ def _query_llm_structured(
             "strict": True,
         },
     }
-    history = agent.prompt(prompt, response_format)
+    history, core = agent.prompt(prompt, response_format)
     result = _get_response(history)
 
     # TODO: catch errors and prevent them from leaking sensitive information
     result_dict = json.loads(result)
     jsonschema.validate(result_dict, schema)
-    return result_dict
+    return result_dict, core
 
 
-def make_query_llm_fn(agent: Agent) -> rt.Function:
+def make_query_llm_fn(fn: Callable) -> rt.Function:
     return runtime.make_function(
         "query_llm",
         """Query a different LLM.
@@ -52,11 +53,21 @@ def make_query_llm_fn(agent: Agent) -> rt.Function:
         The result is always a string stored in a new variable.
         You can use it for more tool calls or the final answer to the user.""",  # noqa: E501
         [("prompt", "str", "The prompt to the LLM. May contain variables.")],
-        lambda prompt: _query_llm(agent, prompt),
+        fn,
     )
 
 
-def make_query_llm_structured_fn(agent: Agent) -> rt.Function:
+def make_query_llm_fn_with_agent(agent: Agent) -> rt.Function:
+    return make_query_llm_fn(lambda prompt: query_llm(agent, prompt)[0])
+
+
+def make_query_llm_structured_fn_with_agent(agent: Agent) -> rt.Function:
+    return make_query_llm_structured_fn(
+        lambda prompt, schema: query_llm_structured(agent, prompt, schema)[0]
+    )
+
+
+def make_query_llm_structured_fn(fn: Callable) -> rt.Function:
     return runtime.make_function(
         "query_llm_structured",
         """Query a different LLM and get a structured output.
@@ -79,7 +90,7 @@ def make_query_llm_structured_fn(agent: Agent) -> rt.Function:
                 "A JSON schema that the function output will conform to.",
             ),
         ],
-        lambda prompt, schema: _query_llm_structured(agent, prompt, schema),
+        fn,
     )
 
 
