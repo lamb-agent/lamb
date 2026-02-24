@@ -71,7 +71,7 @@ def make_query_llm_fn_with_agent(agent: "Agent") -> rt.Function:
 
 def make_query_llm_structured_fn_with_agent(agent: "Agent") -> rt.Function:
     return make_query_llm_structured_fn(
-        lambda prompt, schema: query_llm_structured(agent, prompt, schema)
+        lambda prompt, json_schema: query_llm_structured(agent, prompt, json_schema)
     )
 
 

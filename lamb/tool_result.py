@@ -79,7 +79,7 @@ class VariableFormatter(types.Formatter):
                 case str():
                     return replace_vars(arg)
                 case list():
-                    return [self.expand(tool, item) for item in arg]
+                    return [expand_arg(item) for item in arg]
                 case dict():
                     return {key: expand_arg(val) for key, val in arg.items()}
                 case rt.FunctionCall():

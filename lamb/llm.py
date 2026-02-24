@@ -67,7 +67,7 @@ class Llm:
                 {"response_format": response_format},
             )
             assert len(msgs) == len(messages) + 1
-            return messages[-1]
+            return msgs[-1]
         except openai.RateLimitError:
             logging.exception("Google API exhausted, waiting...")
             time.sleep(30)
