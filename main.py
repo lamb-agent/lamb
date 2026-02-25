@@ -25,7 +25,7 @@ def main() -> None:
                 suite=suite,
                 agent_pipeline=lamb_pipeline,
                 logdir=logdir,
-                force_rerun=False,
+                force_rerun=True,
                 user_tasks=["user_task_0"],
             )
             utility = bench.aggregate_results([results["utility_results"]])
@@ -35,7 +35,7 @@ def main() -> None:
 def create_pipeline() -> pipeline.BasePipelineElement:
     model = llm.Llm.local(llm.OllamaModel.GPT_OSS_120B, reasoning="medium")
     agent_loop = agent.ADAgentLoop(
-        lambda runtime, env: Agent.lamb_no_ifc(model, runtime, env)
+        lambda runtime, env: Agent.lamb_static_ifc(model, runtime, env)
     )
     lamb_pipeline = pipeline.AgentPipeline([agent_loop])
     # This is an inconsistency in AgentDojo.

@@ -83,7 +83,7 @@ class Llm:
     ) -> "Llm":
         return Llm(
             model.value,
-            "http://localhost:11434/v1",
+            "http://localhost:11434",
             api_key="ollama",
             reasoning=reasoning,
         )

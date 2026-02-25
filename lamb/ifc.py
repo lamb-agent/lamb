@@ -53,6 +53,10 @@ class IFCLabel(Enum):
     UH = (Integrity.UNTRUSTED, Confidentiality.HIGH)
 
     @staticmethod
+    def top() -> "IFCLabel":
+        return IFCLabel.UH
+
+    @staticmethod
     def bot() -> "IFCLabel":
         return IFCLabel.TL
 
@@ -201,3 +205,9 @@ class IFCChecker:
                 )
             case _:
                 assert_never(arg)
+
+    def response_label(self, response: str) -> IFCLabel:
+        variables = self.find_vars(response)
+        labels = {self.var_labels[var] for var in variables}
+        joined_label = reduce(IFCLabel.join, labels, self.model_context)
+        return joined_label

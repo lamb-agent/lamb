@@ -1,0 +1,42 @@
+import agentdojo.functions_runtime as rt
+
+import lamb.llm
+import lamb.query_llm
+import lamb.runtime
+import lamb.tool_categories
+import lamb.tool_result
+from lamb.agent import (
+    Agent,
+    AgentCore,
+)
+
+
+def make_core(
+    model: lamb.llm.Llm,
+    functions_runtime: rt.FunctionsRuntime,
+    env: rt.TaskEnvironment,
+) -> AgentCore:
+    read_only_fns = [
+        fn
+        for fn in functions_runtime.functions.values()
+        if fn.run in lamb.tool_categories.READ_ONLY
+    ]
+    b_llm = Agent.bounded(
+        model,
+        # no nested llms
+        make_core=lambda: AgentCore(
+            runtime=lamb.runtime.Runtime.default(
+                rt.FunctionsRuntime(read_only_fns), env
+            ),
+            formatter=lamb.tool_result.VariableFormatter.none(),
+        ),
+    )
+    query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_llm)
+    query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(b_llm)
+
+    return AgentCore(
+        runtime=lamb.runtime.Runtime(
+            functions_runtime, env, [query_llm, query_llm_structured]
+        ),
+        formatter=lamb.tool_result.VariableFormatter.integrity_based(query_llm.run),
+    )
