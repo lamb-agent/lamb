@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import agentdojo.logging
 from agentdojo import agent_pipeline as pipeline
 from agentdojo import benchmark as bench
@@ -33,9 +34,9 @@ def main() -> None:
 
 
 def create_pipeline() -> pipeline.BasePipelineElement:
-    model = llm.Llm.local(llm.OllamaModel.GPT_OSS_120B, reasoning="medium")
+    model = llm.Llm.ollama_openai(llm.OllamaModel.GPT_OSS_120B)
     agent_loop = agent.ADAgentLoop(
-        lambda runtime, env: Agent.lamb_static_ifc(model, runtime, env)
+        lambda runtime, env: Agent.lamb_no_ifc(model, runtime, env)
     )
     lamb_pipeline = pipeline.AgentPipeline([agent_loop])
     # This is an inconsistency in AgentDojo.
