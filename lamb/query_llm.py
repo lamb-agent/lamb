@@ -4,34 +4,25 @@ from collections.abc import Callable
 
 import agentdojo.functions_runtime as rt
 import jsonschema
-from agentdojo.types import ChatMessage
 
 from lamb import runtime
+from lamb.ifc import IFCLabel
 
 if typing.TYPE_CHECKING:
     from openai.types.chat.completion_create_params import ResponseFormat
 
     from lamb.agent import Agent
-    from lamb.ifc import IFCLabel
 
 
-def query_llm(agent: "Agent", prompt: str) -> tuple[str, "IFCLabel | None"]:
-    history, core = agent.prompt(prompt)
-    response = get_response(history)
-    label = None
-    if core.ifc_checker:
-        label = core.ifc_checker.response_label(response)
-    # expand all variables
-    for var, val in core.formatter.var_vals.items():
-        response = response.replace(var, val)
-    return response, label
+def query_llm(agent: "Agent", prompt: str) -> tuple[str, IFCLabel | None]:
+    return agent.prompt(prompt)
 
 
 def query_llm_structured(
     agent: "Agent",
     prompt: str,
     schema: dict,
-) -> tuple[dict, "IFCLabel | None"]:
+) -> tuple[dict, IFCLabel | None]:
     if not _check_schema(schema):
         raise ValueError("There must be no strings in the schema.")
     response_format: ResponseFormat = {
@@ -43,15 +34,7 @@ def query_llm_structured(
             "strict": True,
         },
     }
-    history, core = agent.prompt(prompt, response_format)
-    response = get_response(history)
-    label = None
-    if core.ifc_checker:
-        label = core.ifc_checker.response_label(response)
-
-    # expand all variables
-    for var, val in core.formatter.var_vals.items():
-        response = response.replace(var, val)
+    response, label = agent.prompt(prompt, response_format)
 
     # TODO: catch errors and prevent them from leaking sensitive information
     result_dict = json.loads(response)
@@ -108,18 +91,6 @@ def make_query_llm_structured_fn(fn: Callable[[str, dict], dict]) -> rt.Function
         ],
         fn,
     )
-
-
-def get_response(history: list[ChatMessage]) -> str:
-    assert len(history) >= 3, "LLM must have added a final message"
-    last_message = history[-1]
-    assert last_message["role"] == "assistant", (
-        "Last message must be an assistant message"
-    )
-    assert last_message["content"] is not None and len(last_message["content"]) >= 1, (
-        "Assistant message must have content"
-    )
-    return last_message["content"][0]["content"]
 
 
 def _check_schema(schema: dict | list | bool | str | float) -> bool:  # noqa: FBT001

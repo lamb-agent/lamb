@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
-from agentdojo.types import ChatMessage
+from agentdojo.types import ChatAssistantMessage, ChatMessage
 from openai.types.chat.completion_create_params import ResponseFormat
 
 import lamb.controller
@@ -72,7 +72,7 @@ class Agent:
             self.max_iters,
         )
 
-    def prompt(
+    def run(
         self,
         user_prompt: str,
         response_format: ResponseFormat = lamb.types.TEXT_FORMAT,
@@ -91,6 +91,26 @@ class Agent:
             ]
         )
         return history, core
+
+    def prompt(
+        self,
+        user_prompt: str,
+        response_format: ResponseFormat = lamb.types.TEXT_FORMAT,
+    ) -> tuple[str, lamb.ifc.IFCLabel | None]:
+        """Prompt the agent with a user prompt.
+
+        Returns the resulting chat history and the ejected core.
+        """
+
+        history, core = self.run(user_prompt, response_format)
+        response = lamb.types.get_response(history)
+        label = None
+        if core.ifc_checker:
+            label = core.ifc_checker.response_label(response)
+        # expand all variables
+        for var, val in core.formatter.var_vals.items():
+            response = response.replace(var, val)
+        return response, label
 
     @staticmethod
     def single(
@@ -291,7 +311,8 @@ class ADAgentLoop(pipeline.BasePipelineElement):
         dict,
     ]:
         agent = self.agent_fn(runtime, env)
-        messages, _ = agent.prompt(query)
+        response, _ = agent.prompt(query)
+        messages = [*messages, lamb.types.make_assistant_prompt(response)]
         return (
             query,
             runtime,

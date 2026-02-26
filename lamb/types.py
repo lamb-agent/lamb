@@ -3,11 +3,11 @@ from enum import Enum
 from typing import Protocol, runtime_checkable
 
 import agentdojo.functions_runtime as rt
-import agentdojo.types as ad_types
+import agentdojo.types as ad
 from openai.types.shared_params import ResponseFormatText
 
-type CallLLM = Callable[[list[ad_types.ChatMessage]], ad_types.ChatMessage]
-type CallTools = Callable[[list[rt.FunctionCall]], list[ad_types.ChatMessage]]
+type CallLLM = Callable[[list[ad.ChatMessage]], ad.ChatMessage]
+type CallTools = Callable[[list[rt.FunctionCall]], list[ad.ChatMessage]]
 type CheckIFC = Callable[[rt.Function, Mapping[str, rt.FunctionCallArgTypes]], None]
 
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
@@ -41,8 +41,28 @@ class Role(Enum):
     SYSTEM = "system"
 
 
-def make_user_prompt(prompt: str) -> ad_types.ChatMessage:
+def make_user_prompt(prompt: str) -> ad.ChatMessage:
     return {
         "role": "user",
-        "content": [ad_types.text_content_block_from_string(prompt)],
+        "content": [ad.text_content_block_from_string(prompt)],
     }
+
+
+def make_assistant_prompt(prompt: str) -> ad.ChatAssistantMessage:
+    return {
+        "role": "assistant",
+        "content": [ad.text_content_block_from_string(prompt)],
+        "tool_calls": [],
+    }
+
+
+def get_response(history: list[ad.ChatMessage]) -> str:
+    assert len(history) >= 3, "LLM must have added a final message"
+    last_message = history[-1]
+    assert last_message["role"] == "assistant", (
+        "Last message must be an assistant message"
+    )
+    assert last_message["content"] is not None and len(last_message["content"]) >= 1, (
+        "Assistant message must have content"
+    )
+    return last_message["content"][0]["content"]

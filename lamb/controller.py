@@ -2,6 +2,7 @@ import sys
 from dataclasses import dataclass
 
 from agentdojo.types import (
+    ChatAssistantMessage,
     ChatMessage,
     ChatSystemMessage,
     TextContentBlock,
@@ -20,15 +21,10 @@ class Controller:
     def loop(self, messages: list[ChatMessage]) -> list[ChatMessage]:
         # Prevent infinite loops
         if self.max_iters <= 0:
-            failure_message = ChatSystemMessage(
-                role="system",
-                content=[
-                    TextContentBlock(
-                        type="text",
-                        content="Unfortunately, I failed to fulfill your request",
-                    )
-                ],
+            failure_message = types.make_assistant_prompt(
+                "Unfortunately, I failed to fulfill your request"
             )
+
             logging.log_message(self.identity, failure_message)
             return [*messages, failure_message]
         nr_messages = len(messages)
