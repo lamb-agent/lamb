@@ -1,14 +1,9 @@
 import sys
 from dataclasses import dataclass
 
-from agentdojo.types import (
-    ChatAssistantMessage,
-    ChatMessage,
-    ChatSystemMessage,
-    TextContentBlock,
-)
+from agentdojo.types import ChatMessage
 
-from lamb import logging, types
+from lamb import ifc, logging, types
 
 
 @dataclass
@@ -43,7 +38,15 @@ class Controller:
             case {"role": "assistant", "tool_calls": calls} if (
                 calls is not None and len(calls) > 0
             ):
-                tool_messages = self.call_tools(calls)
+                try:
+                    tool_messages = self.call_tools(calls)
+                except ifc.IFCError as e:
+                    failure_message = types.make_assistant_prompt(
+                        f"IFC violation detected. Aborting... {e}"
+                    )
+
+                    logging.log_message(self.identity, failure_message)
+                    return [*messages, failure_message]
                 logging.log_messages(self.identity, tool_messages)
                 appended_messages = [*messages, *tool_messages]
                 next_message = self.call_llm(appended_messages)

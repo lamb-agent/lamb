@@ -1,7 +1,6 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/tool_execution.py
 from ast import literal_eval
 from dataclasses import dataclass
-import typing
 
 import agentdojo.functions_runtime as rt
 from agentdojo.types import (
