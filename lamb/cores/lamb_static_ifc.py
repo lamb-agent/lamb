@@ -184,6 +184,8 @@ def p_low_make_core(
     def p_low_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
         if tool not in lamb.tool_categories.ALL:
             # tool is query_llm or query_llm_structured
+            # we allow the tool execution
+            # and update the label dynamically afterwards
             return lamb.ifc.IFCLabel.TL
         return basic_tool_sink_label(tool)
 
@@ -215,29 +217,31 @@ def p_low_make_core(
 
     query_llm_index = 0
 
-    def p_low_query_llm_tool(prompt: str) -> str:
+    def p_low_query_llm_tool(prompt: str) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_index
         agent = determine_agent(prompt)
-        response, label = lamb.query_llm.query_llm(agent, prompt)
+        response = lamb.query_llm.query_llm(agent, prompt)
+        label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
             var_name = f"<query_llm_{query_llm_index}:{label}/>"
             query_llm_index += 1
-            p_low_formatter.var_vals[var_name] = response
+            p_low_formatter.var_vals[var_name] = str(response.response)
             p_low_ifc_checker.var_labels[var_name] = label
         return response
 
     query_llm_structured_index = 0
 
-    def p_low_query_llm_structured_tool(prompt: str, json_schema: dict) -> dict:
+    def p_low_query_llm_structured_tool(
+        prompt: str, json_schema: dict
+    ) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_structured_index
         agent = determine_agent(prompt)
-        response, label = lamb.query_llm.query_llm_structured(
-            agent, prompt, json_schema
-        )
+        response = lamb.query_llm.query_llm_structured(agent, prompt, json_schema)
+        label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
             var_name = f"<query_llm_{query_llm_structured_index}:{label}/>"
             query_llm_structured_index += 1
-            p_low_formatter.var_vals[var_name] = str(response)
+            p_low_formatter.var_vals[var_name] = str(response.response)
             p_low_ifc_checker.var_labels[var_name] = label
         return response
 

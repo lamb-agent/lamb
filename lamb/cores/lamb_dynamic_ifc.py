@@ -106,38 +106,20 @@ def p_make_core(
 
         runtime.set_functions(high_conf_sink_fns)
 
-    def p_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        integ = (
-            lamb.ifc.Integrity.TRUSTED
-            if tool
-            in (lamb.tool_categories.TRUSTED_SOURCE | {query_llm_structured.run})
-            else lamb.ifc.Integrity.UNTRUSTED
-        )
-        conf = (
-            lamb.ifc.Confidentiality.HIGH
-            if tool
-            in lamb.tool_categories.HIGH_CONF_SOURCE
-            # TODO: this is conservative for b_llm as high_conf_source
-            | {query_llm.run, query_llm_structured.run}
-            # TODO: ARG_CONF
-            else lamb.ifc.Confidentiality.LOW
-        )
-        return lamb.ifc.IFCLabel(integ, conf)
-
     def p_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        integ = (
-            lamb.ifc.Integrity.TRUSTED
-            if tool in lamb.tool_categories.TRUSTED_SINK
-            else lamb.ifc.Integrity.UNTRUSTED
-        )
-        conf = (
-            lamb.ifc.Confidentiality.HIGH
-            if tool in lamb.tool_categories.HIGH_CONF_SINK
-            # TODO: conservative estimate, b_llm is low conf sink
-            # TODO: ARG_CONF
-            else lamb.ifc.Confidentiality.LOW
-        )
-        return lamb.ifc.IFCLabel(integ, conf)
+        if tool not in lamb.tool_categories.ALL:
+            # b-llm takes care of ifc, so it is safe to forward
+            return lamb.ifc.IFCLabel.top()
+        return basic_tool_sink_label(tool)
+
+    # TODO: use Function instead of Callable
+    def p_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
+        if tool not in lamb.tool_categories.ALL:
+            # tool is query_llm or query_llm_structured
+            # we allow the tool execution
+            # and update the label dynamically afterwards
+            return lamb.ifc.IFCLabel.TL
+        return basic_tool_sink_label(tool)
 
     p_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
@@ -146,7 +128,38 @@ def p_make_core(
         secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
         on_model_context_change=p_on_context_change,
     )
+    formatter = lamb.tool_result.VariableFormatter.ifc(p_ifc_checker)
+
+    query_llm_index = 0
+
+    def p_low_query_llm_tool(prompt: str) -> lamb.query_llm.QueryLlmResponse:
+        nonlocal query_llm_index
+        response = lamb.query_llm.query_llm(b_llm, prompt)
+        label = response.ifc_label
+        if label and label.integ == lamb.ifc.Integrity.UNTRUSTED:
+            var_name = f"<query_llm_{query_llm_index}:{label}/>"
+            query_llm_index += 1
+            formatter.var_vals[var_name] = str(response.response)
+            p_ifc_checker.var_labels[var_name] = label
+            p_ifc_checker.on_model_context_change(label)
+        return response
+
+    query_llm_structured_index = 0
+
+    def p_low_query_llm_structured_tool(
+        prompt: str, json_schema: dict
+    ) -> lamb.query_llm.QueryLlmResponse:
+        nonlocal query_llm_structured_index
+        response = lamb.query_llm.query_llm_structured(b_llm, prompt, json_schema)
+        label = response.ifc_label
+        if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
+            var_name = f"<query_llm_{query_llm_structured_index}:{label}/>"
+            query_llm_structured_index += 1
+            formatter.var_vals[var_name] = str(response.response)
+            p_ifc_checker.var_labels[var_name] = label
+        return response
+
     return AgentCore(
         runtime=runtime,
-        formatter=lamb.tool_result.VariableFormatter.ifc(p_ifc_checker),
+        formatter=formatter,
     )

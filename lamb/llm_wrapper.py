@@ -1,6 +1,5 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/llms/openai_llm.py
 import json
-import typing
 from collections.abc import Sequence
 from typing import overload
 
@@ -183,10 +182,8 @@ def prompt(
         reasoning_effort=reasoning_effort,
     )
     assert isinstance(completion, litellm.ModelResponse)
-    completion = typing.cast("litellm.ModelResponse", completion)
     choice = completion.choices[0]
     assert isinstance(choice, litellm.Choices)
-    choice = typing.cast("litellm.Choices", choice)
 
     output = _openai_to_assistant_message(choice.message)
     return output

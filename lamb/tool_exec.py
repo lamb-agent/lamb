@@ -1,6 +1,7 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/tool_execution.py
 from ast import literal_eval
 from dataclasses import dataclass
+import typing
 
 import agentdojo.functions_runtime as rt
 from agentdojo.types import (
@@ -9,7 +10,7 @@ from agentdojo.types import (
     text_content_block_from_string,
 )
 
-from lamb import ifc, types
+from lamb import ifc, types, query_llm
 from lamb.runtime import Runtime
 
 
@@ -50,32 +51,37 @@ class ToolExec:
             args = self.formatter.expand(tool, tool_call.args)
 
             tool_call_result, error = self.runtime.exec(tool_call.function, args)
+            history: list[ChatMessage] | None = None
+            if tool.name in ["query_llm", "query_llm_structured"]:
+                assert isinstance(tool_call_result, query_llm.QueryLlmResponse)
+                history = tool_call_result.history
+                tool_call_result = tool_call_result.response
             tool_call_id = tool_call.id
             try:
                 formatted_tool_call_result = self.formatter.format(
                     tool,
                     tool_call_result,
                 )
-                tool_call_results.append(
-                    ChatToolResultMessage(
-                        role="tool",
-                        content=[
-                            text_content_block_from_string(formatted_tool_call_result)
-                        ],
-                        tool_call_id=tool_call_id,
-                        tool_call=tool_call,
-                        error=error,
-                    )
+                result = ChatToolResultMessage(
+                    role="tool",
+                    content=[
+                        text_content_block_from_string(formatted_tool_call_result)
+                    ],
+                    tool_call_id=tool_call_id,
+                    tool_call=tool_call,
+                    error=error,
                 )
+                result["history"] = history  # type: ignore
+                tool_call_results.append(result)
             except ifc.IFCError as e:
-                tool_call_results.append(
-                    ChatToolResultMessage(
-                        role="tool",
-                        content=[],
-                        tool_call_id=tool_call_id,
-                        tool_call=tool_call,
-                        error=str(e),
-                    )
+                result = ChatToolResultMessage(
+                    role="tool",
+                    content=[],
+                    tool_call_id=tool_call_id,
+                    tool_call=tool_call,
+                    error=str(e),
                 )
+                result["history"] = history  # type: ignore
+                tool_call_results.append(result)
 
         return tool_call_results

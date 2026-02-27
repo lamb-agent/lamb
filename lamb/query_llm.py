@@ -3,9 +3,11 @@ import typing
 from collections.abc import Callable
 
 import agentdojo.functions_runtime as rt
+from agentdojo.types import ChatMessage
 import jsonschema
+import pydantic
 
-from lamb import runtime
+from lamb import runtime, types
 from lamb.ifc import IFCLabel
 
 if typing.TYPE_CHECKING:
@@ -14,15 +16,23 @@ if typing.TYPE_CHECKING:
     from lamb.agent import Agent
 
 
-def query_llm(agent: "Agent", prompt: str) -> tuple[str, IFCLabel | None]:
-    return agent.prompt(prompt)
+class QueryLlmResponse(pydantic.BaseModel):
+    response: str | dict
+    history: list[ChatMessage]
+    ifc_label: IFCLabel | None
+
+
+def query_llm(agent: "Agent", prompt: str) -> QueryLlmResponse:
+    history, ifc_label = agent.prompt(prompt)
+    response = types.get_response(history)
+    return QueryLlmResponse(response=response, history=history, ifc_label=ifc_label)
 
 
 def query_llm_structured(
     agent: "Agent",
     prompt: str,
     schema: dict,
-) -> tuple[dict, IFCLabel | None]:
+) -> QueryLlmResponse:
     if not _check_schema(schema):
         raise ValueError("There must be no strings in the schema.")
     response_format: ResponseFormat = {
@@ -34,15 +44,16 @@ def query_llm_structured(
             "strict": True,
         },
     }
-    response, label = agent.prompt(prompt, response_format)
+    history, ifc_label = agent.prompt(prompt, response_format)
+    response = types.get_response(history)
 
     # TODO: catch errors and prevent them from leaking sensitive information
     result_dict = json.loads(response)
     jsonschema.validate(result_dict, schema)
-    return result_dict, label
+    return QueryLlmResponse(response=result_dict, history=history, ifc_label=ifc_label)
 
 
-def make_query_llm_fn(fn: Callable[[str], str]) -> rt.Function:
+def make_query_llm_fn(fn: Callable[[str], QueryLlmResponse]) -> rt.Function:
     return runtime.make_function(
         "query_llm",
         """Query a different LLM.
@@ -57,16 +68,18 @@ def make_query_llm_fn(fn: Callable[[str], str]) -> rt.Function:
 
 
 def make_query_llm_fn_with_agent(agent: "Agent") -> rt.Function:
-    return make_query_llm_fn(lambda prompt: query_llm(agent, prompt)[0])
+    return make_query_llm_fn(lambda prompt: query_llm(agent, prompt))
 
 
 def make_query_llm_structured_fn_with_agent(agent: "Agent") -> rt.Function:
     return make_query_llm_structured_fn(
-        lambda prompt, json_schema: query_llm_structured(agent, prompt, json_schema)[0]
+        lambda prompt, json_schema: query_llm_structured(agent, prompt, json_schema)
     )
 
 
-def make_query_llm_structured_fn(fn: Callable[[str, dict], dict]) -> rt.Function:
+def make_query_llm_structured_fn(
+    fn: Callable[[str, dict], QueryLlmResponse],
+) -> rt.Function:
     return runtime.make_function(
         "query_llm_structured",
         """Query a different LLM and get a structured output.
