@@ -170,6 +170,8 @@ class IFCChecker:
                         variable_labels,
                     )
                 ):
+                    # NOTE: For the single_llm upgrading the integrity
+                    # might also be a valid use-case
                     self.model_context = self.model_context.upgrade_conf()
                     self.on_model_context_change(self.model_context)
                     continue

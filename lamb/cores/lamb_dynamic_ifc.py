@@ -58,6 +58,7 @@ def b_low_make_core(
     )
 
 
+# TODO: Can we merge this with that of lamb_static_ifc?
 def b_high_make_core(
     all_fns: list[rt.Function],
     env: rt.TaskEnvironment,
