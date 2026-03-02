@@ -2,13 +2,13 @@ from collections.abc import Callable
 
 import agentdojo.functions_runtime as rt
 
+import lamb.formatter
 import lamb.ifc
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
 import lamb.tool_categories
-import lamb.tool_result
 from lamb.agent import (
     Agent,
     AgentCore,
@@ -54,7 +54,7 @@ def b_low_make_core(
     )
     return AgentCore(
         runtime=runtime,
-        formatter=lamb.tool_result.VariableFormatter.ifc(b_ifc_checker),
+        formatter=lamb.formatter.VariableFormatter.ifc(b_ifc_checker),
     )
 
 
@@ -75,7 +75,7 @@ def b_high_make_core(
     return AgentCore(
         runtime=runtime,
         # we are already at TOP
-        formatter=lamb.tool_result.VariableFormatter.none(),
+        formatter=lamb.formatter.VariableFormatter.none(),
     )
 
 
@@ -138,7 +138,7 @@ def p_make_core(
         secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
         on_model_context_change=p_on_context_change,
     )
-    formatter = lamb.tool_result.VariableFormatter.ifc(p_ifc_checker)
+    formatter = lamb.formatter.VariableFormatter.ifc(p_ifc_checker)
 
     query_llm_index = 0
 

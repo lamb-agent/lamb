@@ -2,13 +2,13 @@ from collections.abc import Callable
 
 import agentdojo.functions_runtime as rt
 
+import lamb.formatter
 import lamb.ifc
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
 import lamb.tool_categories
-import lamb.tool_result
 import lamb.types
 from lamb.agent import (
     Agent,
@@ -53,7 +53,7 @@ def b_high_make_core(
     )
     return AgentCore(
         runtime=b_high_runtime,
-        formatter=lamb.tool_result.VariableFormatter.ifc(b_high_ifc_checker),
+        formatter=lamb.formatter.VariableFormatter.ifc(b_high_ifc_checker),
     )
 
 
@@ -98,7 +98,7 @@ def b_low_make_core(
     )
     return AgentCore(
         runtime=b_low_runtime,
-        formatter=lamb.tool_result.VariableFormatter.ifc(b_low_ifc_checker),
+        formatter=lamb.formatter.VariableFormatter.ifc(b_low_ifc_checker),
     )
 
 
@@ -150,7 +150,7 @@ def p_high_make_core(
     )
     return AgentCore(
         runtime=p_high_runtime,
-        formatter=lamb.tool_result.VariableFormatter.ifc(p_high_ifc_checker),
+        formatter=lamb.formatter.VariableFormatter.ifc(p_high_ifc_checker),
     )
 
 
@@ -201,7 +201,7 @@ def p_low_make_core(
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
 
-    p_low_formatter = lamb.tool_result.VariableFormatter.ifc(p_low_ifc_checker)
+    p_low_formatter = lamb.formatter.VariableFormatter.ifc(p_low_ifc_checker)
 
     def determine_agent(prompt: str) -> Agent:
         label = p_low_ifc_checker.response_label(prompt)

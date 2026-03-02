@@ -7,6 +7,7 @@ from agentdojo.types import ChatMessage
 from openai.types.chat.completion_create_params import ResponseFormat
 
 import lamb.controller
+import lamb.formatter
 import lamb.ifc
 import lamb.llm
 import lamb.prompts
@@ -14,7 +15,6 @@ import lamb.query_llm
 import lamb.runtime
 import lamb.tool_categories
 import lamb.tool_exec
-import lamb.tool_result
 import lamb.types
 
 
@@ -26,7 +26,7 @@ class AgentCore:
     """
 
     runtime: lamb.runtime.Runtime
-    formatter: lamb.tool_result.VariableFormatter
+    formatter: lamb.formatter.VariableFormatter
     ifc_checker: lamb.ifc.IFCChecker | None = None
 
 
@@ -132,7 +132,7 @@ class Agent:
             system_prompt=lamb.prompts.SINGLE_LLM_SYTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
-                formatter=lamb.tool_result.VariableFormatter.none(),
+                formatter=lamb.formatter.VariableFormatter.none(),
             ),
         )
 
@@ -147,7 +147,7 @@ class Agent:
             system_prompt=lamb.prompts.Q_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.empty(),
-                formatter=lamb.tool_result.VariableFormatter.none(),
+                formatter=lamb.formatter.VariableFormatter.none(),
             ),
         )
 
@@ -172,7 +172,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime(
                     functions_runtime, env, [query_llm, query_llm_structured]
                 ),
-                formatter=lamb.tool_result.VariableFormatter.integrity_based(
+                formatter=lamb.formatter.VariableFormatter.integrity_based(
                     query_llm.run
                 ),
             ),
@@ -199,7 +199,7 @@ class Agent:
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime(functions_runtime, env, custom_functions),
-                formatter=lamb.tool_result.VariableFormatter.ifc(ifc_checker),
+                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
             ),
         )
 

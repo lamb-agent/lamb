@@ -1,11 +1,11 @@
 import agentdojo.functions_runtime as rt
 
+import lamb.formatter
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
 import lamb.tool_categories
-import lamb.tool_result
 from lamb.agent import Agent, AgentCore
 
 
@@ -27,7 +27,7 @@ def make_core(
             runtime=lamb.runtime.Runtime.default(
                 rt.FunctionsRuntime(read_only_fns), env
             ),
-            formatter=lamb.tool_result.VariableFormatter.none(),
+            formatter=lamb.formatter.VariableFormatter.none(),
         ),
     )
     query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_llm)
@@ -37,5 +37,5 @@ def make_core(
         runtime=lamb.runtime.Runtime(
             functions_runtime, env, [query_llm, query_llm_structured]
         ),
-        formatter=lamb.tool_result.VariableFormatter.integrity_based(query_llm.run),
+        formatter=lamb.formatter.VariableFormatter.integrity_based(query_llm.run),
     )

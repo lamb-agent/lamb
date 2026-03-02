@@ -9,7 +9,7 @@ from agentdojo.types import (
     text_content_block_from_string,
 )
 
-from lamb import ifc, types, query_llm
+from lamb import ifc, query_llm, types
 from lamb.runtime import Runtime
 
 

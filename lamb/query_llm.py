@@ -3,9 +3,9 @@ import typing
 from collections.abc import Callable
 
 import agentdojo.functions_runtime as rt
-from agentdojo.types import ChatMessage
 import jsonschema
 import pydantic
+from agentdojo.types import ChatMessage
 
 from lamb import runtime, types
 from lamb.ifc import IFCLabel
