@@ -1,13 +1,13 @@
 from pathlib import Path
 
+import agentdojo.benchmark
 import agentdojo.logging
 from agentdojo import agent_pipeline as pipeline
-from agentdojo import benchmark as bench
-from agentdojo import task_suite
+from agentdojo import attacks, task_suite
 
 from lamb import (
     agent,
-    labels,
+    bench,  # noqa: F401
     llm,
     logging,
 )
@@ -18,37 +18,41 @@ def main() -> None:
     suites = task_suite.get_suites("v1.2")
     # we don't actually use the AD logger,
     # but if we don't initialize it AD crashes
-    logdir = Path(".log")
-    with agentdojo.logging.OutputLogger(str(logdir), None):
+    log_dir = Path(".log")
+    with agentdojo.logging.OutputLogger(str(log_dir), None):
         for suite_name, suite in suites.items():
+            # if suite_name != "slack":
+            #     continue
             logging.debug(f"Executing suite {suite_name}")
             lamb_pipeline = create_pipeline()
-            results = bench.benchmark_suite_without_injections(
+            attack = attacks.load_attack("tool_knowledge", suite, lamb_pipeline)
+            # results = bench.benchmark(log_dir=log_dir, aggregate_by_commit=True)
+            results = agentdojo.benchmark.benchmark_suite_with_injections(
                 suite=suite,
+                attack=attack,
                 agent_pipeline=lamb_pipeline,
-                logdir=logdir,
-                force_rerun=True,
-                user_tasks=["user_task_0"],
+                logdir=log_dir,
+                force_rerun=False,
+                injection_tasks=[],
             )
-            utility = bench.aggregate_results([results["utility_results"]])
-            print(f"Utility of {suite_name}: {utility}")
+            print(f"Utility of {suite_name}: {results['utility_results']}")
+            print(f"Security of {suite_name}: {results['security_results']}")
 
 
 def create_pipeline() -> pipeline.BasePipelineElement:
     model = llm.Llm.ollama_openai(llm.OllamaModel.GPT_OSS_120B)
     agent_loop = agent.ADAgentLoop(
-        lambda runtime, env: Agent.lamb_static_ifc(
+        lambda runtime, env: Agent.lamb_no_ifc(
             model,
             runtime,
             env,
-            labels.ADLabeler(env),
         )
     )
     lamb_pipeline = pipeline.AgentPipeline([agent_loop])
     # This is an inconsistency in AgentDojo.
     # The benchmark requires the attribute `name` to be set,
     # but the `AgentPipeline` class doesn't have it.
-    lamb_pipeline.__setattr__("name", "lamb")
+    lamb_pipeline.__setattr__("name", "local_lamb")
     return lamb_pipeline
 
 
