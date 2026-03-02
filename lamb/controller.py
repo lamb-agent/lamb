@@ -28,6 +28,7 @@ class Controller:
         )
 
         last_message = messages[-1]
+        self.max_iters -= 1
         logging.log_message(self.identity, last_message)
         match last_message:
             # Initial user prompt

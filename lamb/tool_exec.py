@@ -51,7 +51,7 @@ class ToolExec:
 
             tool_call_result, error = self.runtime.exec(tool_call.function, args)
             history: list[ChatMessage] | None = None
-            if tool.name in ["query_llm", "query_llm_structured"]:
+            if error is None and tool.name in ["query_llm", "query_llm_structured"]:
                 assert isinstance(tool_call_result, query_llm.QueryLlmResponse)
                 history = tool_call_result.history
                 tool_call_result = tool_call_result.response
