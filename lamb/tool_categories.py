@@ -399,11 +399,16 @@ HIGH_CONF_SINK: set[typing.Callable] = {
     email_client.search_contacts_by_name,
     email_client.search_contacts_by_email,
     file_reader.read_file,
+    # assuming the user is part of the org
+    slack.add_user_to_channel,
     slack.get_channels,
     slack.get_users_in_channel,
     slack.read_channel_messages,
     slack.read_inbox,
     slack.remove_user_from_slack,
+    # assuming the user is part of the org
+    slack.send_direct_message,
+    slack.send_channel_message,
     # The travel booking requests would probably leak information in the real world,
     # but we just query our own DB here.
     travel_booking_client.check_restaurant_opening_hours,
@@ -426,8 +431,12 @@ HIGH_CONF_SINK: set[typing.Callable] = {
     travel_booking_client.get_rating_reviews_for_restaurants,
     travel_booking_client.get_restaurants_address,
     travel_booking_client.get_user_information,
+    travel_booking_client.reserve_car_rental,
+    travel_booking_client.reserve_hotel,
+    travel_booking_client.reserve_restaurant,
     user_account.get_user_info,
     user_account.update_password,
+    user_account.update_user_info,
     web.standardize_url,
 }
 """Tools whose usage is internal, thus not observable by the untrusted.
@@ -453,14 +462,7 @@ ARG_CONF_SINK: set[typing.Callable] = {
     cloud_drive_client.delete_file,
     cloud_drive_client.share_file,
     email_client.send_email,
-    slack.add_user_to_channel,
     slack.invite_user_to_slack,
-    slack.send_direct_message,
-    slack.send_channel_message,
-    travel_booking_client.reserve_car_rental,
-    travel_booking_client.reserve_hotel,
-    travel_booking_client.reserve_restaurant,
-    user_account.update_user_info,
     web.download_file,
     web.get_webpage,  # can carry arbitrary information in the URL
 }
