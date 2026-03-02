@@ -2,7 +2,7 @@ import typing
 from collections.abc import Callable, Mapping
 from enum import Enum
 from functools import reduce
-from typing import Self, assert_never
+from typing import Protocol, Self, assert_never
 
 import agentdojo.functions_runtime as rt
 
@@ -102,26 +102,32 @@ class SecretHandling(Enum):
     STATIC = "static"
 
 
+class Labeler(Protocol):
+    def tool_source_label(
+        self,
+        tool: rt.Function,
+        result: rt.FunctionReturnType,
+    ) -> IFCLabel: ...
+    def tool_sink_label(self, tool: Callable) -> IFCLabel: ...
+
+
 class IFCChecker:
     model_context: IFCLabel
     var_labels: dict[str, IFCLabel]
     secret_handling: SecretHandling
     on_model_context_change: Callable[[IFCLabel], None]
-    tool_sink_label: Callable[[Callable], IFCLabel]
-    tool_source_label: Callable[[rt.Function, rt.FunctionReturnType], IFCLabel]
+    labeler: Labeler
 
     def __init__(
         self,
         model_context: IFCLabel,
-        tool_sink_label: Callable[[Callable], IFCLabel],
-        tool_source_label: Callable[[rt.Function, rt.FunctionReturnType], IFCLabel],
+        labeler: Labeler,
         secret_handling: SecretHandling = SecretHandling.STATIC,
         on_model_context_change: Callable[[IFCLabel], None] = lambda label: None,  # noqa: ARG005
     ) -> None:
         self.var_labels = {}
         self.model_context = model_context
-        self.tool_sink_label = tool_sink_label
-        self.tool_source_label = tool_source_label
+        self.labeler = labeler
         self.secret_handling = secret_handling
         self.on_model_context_change = on_model_context_change
 
@@ -133,14 +139,14 @@ class IFCChecker:
     ) -> bool:
         """Tool call check succeeds if the egress using this tool is permitted."""
 
-        sink = self.tool_sink_label(tool)
+        sink = self.labeler.tool_sink_label(tool)
         source = reduce(IFCLabel.join, variable_labels, model_context)
         return source.permitted_flow(sink)
 
     def hide_result(
         self, tool: rt.Function, result: rt.FunctionReturnType, var: str
     ) -> bool:
-        source = self.tool_source_label(tool, result)
+        source = self.labeler.tool_source_label(tool, result)
         sink = self.model_context
         do_hide = not source.permitted_flow(sink)
         if do_hide:

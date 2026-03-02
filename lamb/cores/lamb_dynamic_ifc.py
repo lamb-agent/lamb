@@ -2,7 +2,6 @@ import agentdojo.functions_runtime as rt
 
 import lamb.formatter
 import lamb.ifc
-import lamb.labels
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -19,13 +18,15 @@ def make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
-    return p_make_core(model, functions_runtime, env)
+    return p_make_core(model, functions_runtime, env, labeler)
 
 
 def b_low_make_core(
     all_fns: list[rt.Function],
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
     read_only_fns = filter_tools(
         all_fns, lamb.tool_categories.READ_ONLY & lamb.tool_categories.UNTRUSTED_SINK
@@ -45,8 +46,7 @@ def b_low_make_core(
     b_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UL,
         secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
-        tool_source_label=lamb.labels.tool_source_label,
-        tool_sink_label=lamb.labels.tool_sink_label,
+        labeler=labeler,
         on_model_context_change=on_context_change,
     )
     return AgentCore(
@@ -80,13 +80,14 @@ def p_make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
     all_fns = list(functions_runtime.functions.values())
 
     b_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        lambda: b_low_make_core(all_fns, env),
+        lambda: b_low_make_core(all_fns, env, labeler),
     )
     query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_llm)
     query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(b_llm)
@@ -115,8 +116,7 @@ def p_make_core(
 
     p_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
-        tool_sink_label=lamb.labels.tool_sink_label,
-        tool_source_label=lamb.labels.tool_source_label,
+        labeler=labeler,
         secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
         on_model_context_change=p_on_context_change,
     )

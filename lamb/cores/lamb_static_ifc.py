@@ -2,7 +2,6 @@ import agentdojo.functions_runtime as rt
 
 import lamb.formatter
 import lamb.ifc
-import lamb.labels
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -20,13 +19,15 @@ def make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
-    return p_low_make_core(model, functions_runtime, env)
+    return p_low_make_core(model, functions_runtime, env, labeler)
 
 
 def b_high_make_core(
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
     all_fns = list(functions_runtime.functions.values())
 
@@ -44,8 +45,7 @@ def b_high_make_core(
     )
     b_high_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UH,
-        tool_sink_label=lamb.labels.tool_sink_label,
-        tool_source_label=lamb.labels.tool_source_label,
+        labeler=labeler,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
     return AgentCore(
@@ -58,12 +58,13 @@ def b_low_make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
     all_fns = list(functions_runtime.functions.values())
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_high_make_core(functions_runtime, env),
+        make_core=lambda: b_high_make_core(functions_runtime, env, labeler),
     )
     b_low_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     b_low_runtime = lamb.runtime.Runtime(
@@ -79,8 +80,7 @@ def b_low_make_core(
 
     b_low_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UL,
-        tool_sink_label=lamb.labels.tool_sink_label,
-        tool_source_label=lamb.labels.tool_source_label,
+        labeler=labeler,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
     return AgentCore(
@@ -93,12 +93,13 @@ def p_high_make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
     all_fns = list(functions_runtime.functions.values())
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_high_make_core(functions_runtime, env),
+        make_core=lambda: b_high_make_core(functions_runtime, env, labeler),
     )
     p_high_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     p_high_query_llm_structured = (
@@ -117,8 +118,7 @@ def p_high_make_core(
 
     p_high_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TH,
-        tool_sink_label=lamb.labels.tool_sink_label,
-        tool_source_label=lamb.labels.tool_source_label,
+        labeler=labeler,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
     return AgentCore(
@@ -131,17 +131,18 @@ def p_low_make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_high_make_core(functions_runtime, env),
+        make_core=lambda: b_high_make_core(functions_runtime, env, labeler),
     )
 
     b_low_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_low_make_core(model, functions_runtime, env),
+        make_core=lambda: b_low_make_core(model, functions_runtime, env, labeler),
     )
 
     p_high_llm = Agent(
@@ -149,13 +150,12 @@ def p_low_make_core(
         model=model,
         identity=lamb.types.Identity.PRIVILEDGED,
         system_prompt=lamb.prompts.P_HIGH_LLM_SYSTEM_PROMPT,
-        make_core=lambda: p_high_make_core(model, functions_runtime, env),
+        make_core=lambda: p_high_make_core(model, functions_runtime, env, labeler),
     )
 
     p_low_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
-        tool_sink_label=lamb.labels.tool_sink_label,
-        tool_source_label=lamb.labels.tool_source_label,
+        labeler=labeler,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
 

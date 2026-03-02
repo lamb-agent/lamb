@@ -7,6 +7,7 @@ from agentdojo import task_suite
 
 from lamb import (
     agent,
+    labels,
     llm,
     logging,
 )
@@ -36,7 +37,12 @@ def main() -> None:
 def create_pipeline() -> pipeline.BasePipelineElement:
     model = llm.Llm.ollama_openai(llm.OllamaModel.GPT_OSS_120B)
     agent_loop = agent.ADAgentLoop(
-        lambda runtime, env: Agent.lamb_no_ifc(model, runtime, env)
+        lambda runtime, env: Agent.lamb_static_ifc(
+            model,
+            runtime,
+            env,
+            labels.ADLabeler(),
+        )
     )
     lamb_pipeline = pipeline.AgentPipeline([agent_loop])
     # This is an inconsistency in AgentDojo.

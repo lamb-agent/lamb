@@ -9,11 +9,11 @@ from openai.types.chat.completion_create_params import ResponseFormat
 import lamb.controller
 import lamb.formatter
 import lamb.ifc
+import lamb.labels
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
-import lamb.tool_categories
 import lamb.tool_exec
 import lamb.types
 
@@ -238,6 +238,7 @@ class Agent:
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
+        labeler: lamb.ifc.Labeler,
     ) -> "Agent":
         from lamb.cores.lamb_dynamic_ifc import make_core  # noqa: PLC0415
 
@@ -246,7 +247,12 @@ class Agent:
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
-            make_core=lambda: make_core(model, functions_runtime, env),
+            make_core=lambda: make_core(
+                model,
+                functions_runtime,
+                env,
+                labeler,
+            ),
         )
 
     @staticmethod
@@ -254,6 +260,7 @@ class Agent:
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
+        labeler: lamb.ifc.Labeler,
     ) -> "Agent":
         from lamb.cores.lamb_static_ifc import make_core  # noqa: PLC0415
 
@@ -262,7 +269,12 @@ class Agent:
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
-            make_core=lambda: make_core(model, functions_runtime, env),
+            make_core=lambda: make_core(
+                model,
+                functions_runtime,
+                env,
+                labeler,
+            ),
         )
 
 
