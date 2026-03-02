@@ -134,23 +134,15 @@ class IFCChecker:
         source = reduce(IFCLabel.join, variable_labels, model_context)
         return source.permitted_flow(sink)
 
-    def permitted_tool_result(
-        self,
-        tool: typing.Callable,
-        model_context: IFCLabel,
+    def hide_result(
+        self, tool: rt.Function, result: rt.FunctionReturnType, var: str
     ) -> bool:
-        """Tool result check succeeds if the ingress using this tool is permitted."""
-
-        source = self.tool_source_label(tool)
-        sink = model_context
-        return source.permitted_flow(sink)
-
-    def hide_result(self, tool: Callable) -> bool:
-        return not self.permitted_tool_result(tool, self.model_context)
-
-    def on_new_var(self, tool: rt.Function, var: str) -> None:
-        label = self.tool_source_label(tool.run)
-        self.var_labels[var] = label
+        source = self.tool_source_label(tool.run)
+        sink = self.model_context
+        do_hide = not source.permitted_flow(sink)
+        if do_hide:
+            self.var_labels[var] = source
+        return do_hide
 
     def check(
         self,

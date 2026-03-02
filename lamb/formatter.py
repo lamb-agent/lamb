@@ -13,20 +13,17 @@ class VariableFormatter(types.Formatter):
 
     var_vals: dict[str, str]
     tools: dict[str, int]
-    hide_result: Callable[[Callable], bool]
-    notify_new_var: Callable[[rt.Function, str], None]
+    hide_result: Callable[[rt.Function, rt.FunctionReturnType, str], bool]
     check_call: types.CheckIFC
 
     def __init__(
         self,
-        hide_result: Callable[[Callable], bool],
-        notify_new_var: Callable[[rt.Function, str], None] = lambda tool, index: None,
-        check_call: types.CheckIFC = lambda tool, args: None,  # noqa: ARG005
+        hide_result: Callable[[rt.Function, rt.FunctionReturnType, str], bool],
+        check_call: types.CheckIFC = lambda _tool, _args: None,
     ) -> None:
         self.var_vals = {}
         self.tools = {}
         self.hide_result = hide_result
-        self.notify_new_var = notify_new_var
         self.check_call = check_call
 
     def format(
@@ -36,22 +33,23 @@ class VariableFormatter(types.Formatter):
     ) -> str:
         tool_name = tool.name
 
-        def make_new_var() -> str:
+        def get_next_var() -> str:
             assert tool_name in self.tools, f"Tool {tool_name} was not added to tools."
             index = self.tools[tool_name]
-            var = f"<{tool_name}_{index}/>"
-            self.notify_new_var(tool, var)
-            self.tools[tool_name] += 1
-            return var
+            return f"<{tool_name}_{index}/>"
 
         if tool_name not in self.tools:
             self.tools[tool_name] = 0
 
+        next_var = get_next_var()
+
         result_str = _stringify_result(result)
-        if self.hide_result(tool.run):
-            new_var = make_new_var()
-            self.var_vals[new_var] = result_str
-            return new_var
+
+        if self.hide_result(tool, result, next_var):
+            self.var_vals[next_var] = result_str
+            self.tools[tool_name] += 1
+            return next_var
+
         return result_str
 
     def expand(
@@ -94,21 +92,24 @@ class VariableFormatter(types.Formatter):
     def none() -> "VariableFormatter":
         """Never hide variables."""
 
-        return VariableFormatter(hide_result=lambda _: False)
+        return VariableFormatter(hide_result=lambda _tool, _result, _var: False)
 
     @staticmethod
     def integrity_based(query_llm: Callable | None = None) -> "VariableFormatter":
         """Create new variable formatter that hides results from untrusted sources."""
 
+        # TODO: decouple tool categories from formatter
         untrusted_source_fns = tool_categories.UNTRUSTED_SOURCE | {query_llm}
 
-        return VariableFormatter(hide_result=untrusted_source_fns.__contains__)
+        return VariableFormatter(
+            # TODO: shouldn't we use result here as well?
+            hide_result=lambda tool, _result, _var: tool.run in untrusted_source_fns
+        )
 
     @staticmethod
     def ifc(ifc_checker: ifc.IFCChecker) -> "VariableFormatter":
         return VariableFormatter(
             hide_result=ifc_checker.hide_result,
-            notify_new_var=ifc_checker.on_new_var,
             check_call=ifc_checker.check,
         )
 
