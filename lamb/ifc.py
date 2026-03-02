@@ -148,11 +148,9 @@ class IFCChecker:
     def hide_result(self, tool: Callable) -> bool:
         return not self.permitted_tool_result(tool, self.model_context)
 
-    def format_fn(self, tool: rt.Function, index: int) -> str:
+    def on_new_var(self, tool: rt.Function, var: str) -> None:
         label = self.tool_source_label(tool.run)
-        var = f"<{tool.name}_{index}:{label}/>"
         self.var_labels[var] = label
-        return var
 
     def check(
         self,

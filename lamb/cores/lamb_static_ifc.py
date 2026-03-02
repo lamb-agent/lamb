@@ -228,10 +228,10 @@ def p_low_make_core(
         response = lamb.query_llm.query_llm(agent, prompt)
         label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
-            var_name = f"<query_llm_{query_llm_index}:{label}/>"
+            var = f"<query_llm_{query_llm_index}/>"
             query_llm_index += 1
-            p_low_formatter.var_vals[var_name] = str(response.response)
-            p_low_ifc_checker.var_labels[var_name] = label
+            p_low_formatter.var_vals[var] = str(response.response)
+            p_low_ifc_checker.var_labels[var] = label
         return response
 
     query_llm_structured_index = 0
@@ -244,10 +244,10 @@ def p_low_make_core(
         response = lamb.query_llm.query_llm_structured(agent, prompt, json_schema)
         label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
-            var_name = f"<query_llm_{query_llm_structured_index}:{label}/>"
+            var = f"<query_llm_structured_{query_llm_structured_index}/>"
             query_llm_structured_index += 1
-            p_low_formatter.var_vals[var_name] = str(response.response)
-            p_low_ifc_checker.var_labels[var_name] = label
+            p_low_formatter.var_vals[var] = str(response.response)
+            p_low_ifc_checker.var_labels[var] = label
         return response
 
     p_low_query_llm = lamb.query_llm.make_query_llm_fn(p_low_query_llm_tool)

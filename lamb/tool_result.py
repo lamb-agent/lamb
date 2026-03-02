@@ -14,21 +14,19 @@ class VariableFormatter(types.Formatter):
     var_vals: dict[str, str]
     tools: dict[str, int]
     hide_result: Callable[[Callable], bool]
-    format_fn: Callable[[rt.Function, int], str]
+    notify_new_var: Callable[[rt.Function, str], None]
     check_call: types.CheckIFC
 
     def __init__(
         self,
         hide_result: Callable[[Callable], bool],
-        format_fn: Callable[[rt.Function, int], str] = lambda tool, index: (
-            f"<{tool.name}_{index}/>"
-        ),
+        notify_new_var: Callable[[rt.Function, str], None] = lambda tool, index: None,
         check_call: types.CheckIFC = lambda tool, args: None,  # noqa: ARG005
     ) -> None:
         self.var_vals = {}
         self.tools = {}
         self.hide_result = hide_result
-        self.format_fn = format_fn
+        self.notify_new_var = notify_new_var
         self.check_call = check_call
 
     def format(
@@ -40,7 +38,9 @@ class VariableFormatter(types.Formatter):
 
         def make_new_var() -> str:
             assert tool_name in self.tools, f"Tool {tool_name} was not added to tools."
-            var = self.format_fn(tool, self.tools[tool_name])
+            index = self.tools[tool_name]
+            var = f"<{tool_name}_{index}/>"
+            self.notify_new_var(tool, var)
             self.tools[tool_name] += 1
             return var
 
@@ -108,7 +108,7 @@ class VariableFormatter(types.Formatter):
     def ifc(ifc_checker: ifc.IFCChecker) -> "VariableFormatter":
         return VariableFormatter(
             hide_result=ifc_checker.hide_result,
-            format_fn=ifc_checker.format_fn,
+            notify_new_var=ifc_checker.on_new_var,
             check_call=ifc_checker.check,
         )
 
