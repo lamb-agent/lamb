@@ -1,9 +1,8 @@
-from collections.abc import Callable
-
 import agentdojo.functions_runtime as rt
 
 import lamb.formatter
 import lamb.ifc
+import lamb.labels
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -12,8 +11,6 @@ import lamb.tool_categories
 from lamb.agent import (
     Agent,
     AgentCore,
-    basic_tool_sink_label,
-    basic_tool_source_label,
     filter_tools,
 )
 
@@ -48,8 +45,8 @@ def b_low_make_core(
     b_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UL,
         secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
-        tool_source_label=basic_tool_source_label,
-        tool_sink_label=basic_tool_sink_label,
+        tool_source_label=lamb.labels.tool_source_label,
+        tool_sink_label=lamb.labels.tool_sink_label,
         on_model_context_change=on_context_change,
     )
     return AgentCore(
@@ -116,25 +113,10 @@ def p_make_core(
 
         runtime.set_functions(high_conf_sink_fns)
 
-    def p_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool not in lamb.tool_categories.ALL:
-            # b-llm takes care of ifc, so it is safe to forward
-            return lamb.ifc.IFCLabel.top()
-        return basic_tool_sink_label(tool)
-
-    # TODO: use Function instead of Callable
-    def p_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool not in lamb.tool_categories.ALL:
-            # tool is query_llm or query_llm_structured
-            # we allow the tool execution
-            # and update the label dynamically afterwards
-            return lamb.ifc.IFCLabel.TL
-        return basic_tool_sink_label(tool)
-
     p_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
-        tool_sink_label=p_tool_sink_label,
-        tool_source_label=p_tool_source_label,
+        tool_sink_label=lamb.labels.tool_sink_label,
+        tool_source_label=lamb.labels.tool_source_label,
         secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
         on_model_context_change=p_on_context_change,
     )
@@ -144,6 +126,7 @@ def p_make_core(
 
     def p_low_query_llm_tool(prompt: str) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_index
+        # TODO: change b_llm to HIGH context if context is HIGH
         response = lamb.query_llm.query_llm(b_llm, prompt)
         label = response.ifc_label
         if label and label.integ == lamb.ifc.Integrity.UNTRUSTED:

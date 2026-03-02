@@ -7,8 +7,7 @@ import jsonschema
 import pydantic
 from agentdojo.types import ChatMessage
 
-from lamb import runtime, types
-from lamb.ifc import IFCLabel
+from lamb import ifc, runtime, types
 
 if typing.TYPE_CHECKING:
     from openai.types.chat.completion_create_params import ResponseFormat
@@ -19,7 +18,7 @@ if typing.TYPE_CHECKING:
 class QueryLlmResponse(pydantic.BaseModel):
     response: str | dict
     history: list[ChatMessage]
-    ifc_label: IFCLabel | None
+    ifc_label: ifc.IFCLabel | None
 
 
 def query_llm(agent: "Agent", prompt: str) -> QueryLlmResponse:
@@ -45,6 +44,10 @@ def query_llm_structured(
         },
     }
     history, ifc_label = agent.prompt(prompt, response_format)
+    if ifc_label:
+        # Structured outputs are trusted,
+        # because they don't carry arbitrary strings that could poison the LLM
+        ifc_label = ifc_label.set_integ(ifc.Integrity.TRUSTED)
     response = types.get_response(history)
 
     # TODO: catch errors and prevent them from leaking sensitive information

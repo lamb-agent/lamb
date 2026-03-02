@@ -266,35 +266,6 @@ class Agent:
         )
 
 
-def basic_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
-    integ = (
-        lamb.ifc.Integrity.TRUSTED
-        if tool in lamb.tool_categories.TRUSTED_SOURCE
-        else lamb.ifc.Integrity.UNTRUSTED
-    )
-    conf = (
-        lamb.ifc.Confidentiality.HIGH
-        if tool in lamb.tool_categories.HIGH_CONF_SOURCE
-        else lamb.ifc.Confidentiality.LOW
-    )
-    return lamb.ifc.IFCLabel(integ, conf)
-
-
-def basic_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
-    # TODO: ARG_CONF
-    integ = (
-        lamb.ifc.Integrity.TRUSTED
-        if tool in lamb.tool_categories.TRUSTED_SINK
-        else lamb.ifc.Integrity.UNTRUSTED
-    )
-    conf = (
-        lamb.ifc.Confidentiality.HIGH
-        if tool in lamb.tool_categories.HIGH_CONF_SINK
-        else lamb.ifc.Confidentiality.LOW
-    )
-    return lamb.ifc.IFCLabel(integ, conf)
-
-
 def filter_tools(
     all_fns: list[rt.Function],
     tools_set: set[Callable],

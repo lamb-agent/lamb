@@ -90,8 +90,11 @@ class IFCLabel(Enum):
             self.conf.join(other.conf),
         )
 
-    def upgrade_conf(self) -> Self:
-        return type(self)(self.integ, Confidentiality.HIGH)
+    def set_conf(self, conf: Confidentiality) -> Self:
+        return type(self)(self.integ, conf)
+
+    def set_integ(self, integ: Integrity) -> Self:
+        return type(self)(integ, self.conf)
 
 
 class SecretHandling(Enum):
@@ -105,13 +108,13 @@ class IFCChecker:
     secret_handling: SecretHandling
     on_model_context_change: Callable[[IFCLabel], None]
     tool_sink_label: Callable[[Callable], IFCLabel]
-    tool_source_label: Callable[[Callable], IFCLabel]
+    tool_source_label: Callable[[rt.Function, rt.FunctionReturnType], IFCLabel]
 
     def __init__(
         self,
         model_context: IFCLabel,
         tool_sink_label: Callable[[Callable], IFCLabel],
-        tool_source_label: Callable[[Callable], IFCLabel],
+        tool_source_label: Callable[[rt.Function, rt.FunctionReturnType], IFCLabel],
         secret_handling: SecretHandling = SecretHandling.STATIC,
         on_model_context_change: Callable[[IFCLabel], None] = lambda label: None,  # noqa: ARG005
     ) -> None:
@@ -137,7 +140,7 @@ class IFCChecker:
     def hide_result(
         self, tool: rt.Function, result: rt.FunctionReturnType, var: str
     ) -> bool:
-        source = self.tool_source_label(tool.run)
+        source = self.tool_source_label(tool, result)
         sink = self.model_context
         do_hide = not source.permitted_flow(sink)
         if do_hide:
@@ -158,13 +161,15 @@ class IFCChecker:
                     self.secret_handling == SecretHandling.DYNAMIC
                     and self.permitted_tool_call(
                         tool.run,
-                        self.model_context.upgrade_conf(),
+                        self.model_context.set_conf(Confidentiality.HIGH),
                         variable_labels,
                     )
                 ):
                     # NOTE: For the single_llm upgrading the integrity
                     # might also be a valid use-case
-                    self.model_context = self.model_context.upgrade_conf()
+                    self.model_context = self.model_context.set_conf(
+                        Confidentiality.HIGH
+                    )
                     self.on_model_context_change(self.model_context)
                     continue
 

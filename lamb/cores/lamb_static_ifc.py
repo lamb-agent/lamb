@@ -1,9 +1,8 @@
-from collections.abc import Callable
-
 import agentdojo.functions_runtime as rt
 
 import lamb.formatter
 import lamb.ifc
+import lamb.labels
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -13,8 +12,6 @@ import lamb.types
 from lamb.agent import (
     Agent,
     AgentCore,
-    basic_tool_sink_label,
-    basic_tool_source_label,
     filter_tools,
 )
 
@@ -47,8 +44,8 @@ def b_high_make_core(
     )
     b_high_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UH,
-        tool_sink_label=basic_tool_sink_label,
-        tool_source_label=basic_tool_source_label,
+        tool_sink_label=lamb.labels.tool_sink_label,
+        tool_source_label=lamb.labels.tool_source_label,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
     return AgentCore(
@@ -80,20 +77,10 @@ def b_low_make_core(
         custom_functions=[b_low_query_llm],
     )
 
-    def b_low_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool == b_low_query_llm:
-            return lamb.ifc.IFCLabel.UH
-        return basic_tool_sink_label(tool)
-
-    def b_low_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool == b_low_query_llm:
-            return lamb.ifc.IFCLabel.UH
-        return basic_tool_sink_label(tool)
-
     b_low_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UL,
-        tool_sink_label=b_low_tool_sink_label,
-        tool_source_label=b_low_tool_source_label,
+        tool_sink_label=lamb.labels.tool_sink_label,
+        tool_source_label=lamb.labels.tool_source_label,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
     return AgentCore(
@@ -128,24 +115,10 @@ def p_high_make_core(
         custom_functions=[p_high_query_llm, p_high_query_llm_structured],
     )
 
-    def p_high_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool == p_high_query_llm:
-            return lamb.ifc.IFCLabel.UH
-        if tool == p_high_query_llm_structured:
-            return lamb.ifc.IFCLabel.UH
-        return basic_tool_sink_label(tool)
-
-    def p_high_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool == p_high_query_llm:
-            return lamb.ifc.IFCLabel.UH
-        if tool == p_high_query_llm_structured:
-            return lamb.ifc.IFCLabel.TH
-        return basic_tool_sink_label(tool)
-
     p_high_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TH,
-        tool_sink_label=p_high_tool_sink_label,
-        tool_source_label=p_high_tool_source_label,
+        tool_sink_label=lamb.labels.tool_sink_label,
+        tool_source_label=lamb.labels.tool_source_label,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
     return AgentCore(
@@ -179,25 +152,10 @@ def p_low_make_core(
         make_core=lambda: p_high_make_core(model, functions_runtime, env),
     )
 
-    def p_low_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool not in lamb.tool_categories.ALL:
-            # each flow is possible because sub-agent is chosen dynamically
-            return lamb.ifc.IFCLabel.top()
-        return basic_tool_sink_label(tool)
-
-    # TODO: use Function instead of Callable
-    def p_low_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
-        if tool not in lamb.tool_categories.ALL:
-            # tool is query_llm or query_llm_structured
-            # we allow the tool execution
-            # and update the label dynamically afterwards
-            return lamb.ifc.IFCLabel.TL
-        return basic_tool_sink_label(tool)
-
     p_low_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
-        tool_sink_label=p_low_tool_sink_label,
-        tool_source_label=p_low_tool_source_label,
+        tool_sink_label=lamb.labels.tool_sink_label,
+        tool_source_label=lamb.labels.tool_source_label,
         secret_handling=lamb.ifc.SecretHandling.STATIC,
     )
 
