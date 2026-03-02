@@ -124,16 +124,15 @@ class Agent:
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
-        formatter: lamb.tool_result.VariableFormatter,
     ) -> "Agent":
         return Agent(
             name="single",
             model=model,
             identity=lamb.types.Identity.SINGLE,
-            system_prompt=lamb.prompts.Q_LLM_SYSTEM_PROMPT,  # TODO: single prompt
+            system_prompt=lamb.prompts.SINGLE_LLM_SYTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
-                formatter=formatter,
+                formatter=lamb.tool_result.VariableFormatter.none(),
             ),
         )
 
@@ -168,7 +167,7 @@ class Agent:
             name="dual-priviledged",
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
-            system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,  # TODO: need dedicated
+            system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime(
                     functions_runtime, env, [query_llm, query_llm_structured]
@@ -196,7 +195,7 @@ class Agent:
             name="dual-ifc-priviledged",
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
-            system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,  # TODO: need dedicated
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime(functions_runtime, env, custom_functions),
                 formatter=lamb.tool_result.VariableFormatter.ifc(ifc_checker),
@@ -206,13 +205,14 @@ class Agent:
     @staticmethod
     def bounded(
         model: lamb.llm.Llm,
+        system_prompt: str,
         make_core: Callable[[], AgentCore],
     ) -> "Agent":
         return Agent(
             name="lamb-bounded",
             model=model,
             identity=lamb.types.Identity.BOUNDED,
-            system_prompt=lamb.prompts.B_LLM_SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             make_core=make_core,
         )
 
@@ -228,7 +228,7 @@ class Agent:
             name="lamb-no-ifc-priviledged",
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
-            system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(model, functions_runtime, env),
         )
 
@@ -244,7 +244,7 @@ class Agent:
             name="lamb-dynamic-ifc-priviledged",
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
-            system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(model, functions_runtime, env),
         )
 
@@ -260,7 +260,7 @@ class Agent:
             name="lamb-static-ifc-priviledged",
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
-            system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(model, functions_runtime, env),
         )
 
@@ -280,6 +280,7 @@ def basic_tool_source_label(tool: Callable) -> lamb.ifc.IFCLabel:
 
 
 def basic_tool_sink_label(tool: Callable) -> lamb.ifc.IFCLabel:
+    # TODO: ARG_CONF
     integ = (
         lamb.ifc.Integrity.TRUSTED
         if tool in lamb.tool_categories.TRUSTED_SINK

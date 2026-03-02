@@ -65,6 +65,7 @@ def b_low_make_core(
     all_fns = list(functions_runtime.functions.values())
     b_high_llm = Agent.bounded(
         model,
+        lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         make_core=lambda: b_high_make_core(functions_runtime, env),
     )
     b_low_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
@@ -109,6 +110,7 @@ def p_high_make_core(
     all_fns = list(functions_runtime.functions.values())
     b_high_llm = Agent.bounded(
         model,
+        lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         make_core=lambda: b_high_make_core(functions_runtime, env),
     )
     p_high_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
@@ -159,18 +161,21 @@ def p_low_make_core(
 ) -> AgentCore:
     b_high_llm = Agent.bounded(
         model,
+        lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         make_core=lambda: b_high_make_core(functions_runtime, env),
     )
 
     b_low_llm = Agent.bounded(
         model,
+        lamb.prompts.B_LLM_VARS_SYSTEM_PROMPT,
         make_core=lambda: b_low_make_core(model, functions_runtime, env),
     )
 
     p_high_llm = Agent(
+        name="lamb-static-ifc-high-priviledged",
         model=model,
         identity=lamb.types.Identity.PRIVILEDGED,
-        system_prompt=lamb.prompts.P_LLM_SYSTEM_PROMPT,
+        system_prompt=lamb.prompts.P_HIGH_LLM_SYSTEM_PROMPT,
         make_core=lambda: p_high_make_core(model, functions_runtime, env),
     )
 

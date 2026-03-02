@@ -1,14 +1,12 @@
 import agentdojo.functions_runtime as rt
 
 import lamb.llm
+import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
 import lamb.tool_categories
 import lamb.tool_result
-from lamb.agent import (
-    Agent,
-    AgentCore,
-)
+from lamb.agent import Agent, AgentCore
 
 
 def make_core(
@@ -23,6 +21,7 @@ def make_core(
     ]
     b_llm = Agent.bounded(
         model,
+        system_prompt=lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         # no nested llms
         make_core=lambda: AgentCore(
             runtime=lamb.runtime.Runtime.default(

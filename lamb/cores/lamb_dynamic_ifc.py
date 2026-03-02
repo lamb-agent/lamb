@@ -4,6 +4,7 @@ import agentdojo.functions_runtime as rt
 
 import lamb.ifc
 import lamb.llm
+import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
 import lamb.tool_categories
@@ -84,7 +85,11 @@ def p_make_core(
 ) -> AgentCore:
     all_fns = list(functions_runtime.functions.values())
 
-    b_llm = Agent.bounded(model, lambda: b_low_make_core(all_fns, env))
+    b_llm = Agent.bounded(
+        model,
+        lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
+        lambda: b_low_make_core(all_fns, env),
+    )
     query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_llm)
     query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(b_llm)
 
@@ -97,7 +102,11 @@ def p_make_core(
 
         assert ifc_label == lamb.ifc.IFCLabel.TH, "P-LLM label must be TH."
         high_conf_sink_fns = filter_tools(all_fns, lamb.tool_categories.HIGH_CONF_SINK)
-        b_llm = Agent.bounded(model, lambda: b_high_make_core(all_fns, env))
+        b_llm = Agent.bounded(
+            model,
+            lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
+            lambda: b_high_make_core(all_fns, env),
+        )
         query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_llm)
         query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(
             b_llm
