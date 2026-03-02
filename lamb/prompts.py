@@ -42,7 +42,8 @@ You are the worker LLM in an orchestrated setup.
 This means you have access to information and tools,
 that the orchestrator doesn't have access to for isolation purposes.
 This means, prompts by the orchestrating LLM might be incomplete.
-Variables that the task talk about are automatically expanded into your context.
+Variables that the task talks about are automatically expanded into your
+context.
 So you don't see them anymore.
 You are free to use the tools at your disposal to gather further information
 and answer the question in its entirety.
@@ -59,7 +60,8 @@ You are the worker LLM in an orchestrated setup.
 This means you have access to information and tools,
 that the orchestrator doesn't have access to for isolation purposes.
 This means, prompts by the orchestrating LLM might be incomplete.
-Variables that the task talk about are automatically expanded into your context.
+Variables that the task talks about are automatically expanded into your
+context.
 So you don't see them anymore.
 You are free to use the tools at your disposal to gather further information
 and answer the question in its entirety.

@@ -178,6 +178,7 @@ class Agent:
             ),
         )
 
+    # TODO: investigate how labeling is for query_llm funs as sources
     @staticmethod
     def dual_ifc(
         model: lamb.llm.Llm,
