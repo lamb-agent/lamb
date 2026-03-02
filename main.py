@@ -41,7 +41,7 @@ def create_pipeline() -> pipeline.BasePipelineElement:
             model,
             runtime,
             env,
-            labels.ADLabeler(),
+            labels.ADLabeler(env),
         )
     )
     lamb_pipeline = pipeline.AgentPipeline([agent_loop])

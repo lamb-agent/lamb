@@ -1,7 +1,9 @@
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 
 import agentdojo.functions_runtime as rt
 import pydantic
+
+from lamb import types
 
 
 class Runtime:
@@ -28,7 +30,7 @@ class Runtime:
     def exec(
         self,
         tool: str,
-        args: Mapping[str, rt.FunctionCallArgTypes],
+        args: types.Args,
     ) -> tuple[rt.FunctionReturnType, str | None]:
         return self.functions_runtime.run_function(self.env, tool, args)
 

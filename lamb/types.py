@@ -8,7 +8,8 @@ from openai.types.shared_params import ResponseFormatText
 
 type CallLLM = Callable[[list[ad.ChatMessage]], ad.ChatMessage]
 type CallTools = Callable[[list[rt.FunctionCall]], list[ad.ChatMessage]]
-type CheckIFC = Callable[[rt.Function, Mapping[str, rt.FunctionCallArgTypes]], None]
+type Args = Mapping[str, rt.FunctionCallArgTypes]
+type CheckIFC = Callable[[rt.Function, Args], None]
 
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
 
@@ -23,8 +24,8 @@ class Formatter(Protocol):
     def expand(
         self,
         tool: rt.Function,
-        args: Mapping[str, rt.FunctionCallArgTypes],
-    ) -> Mapping[str, rt.FunctionCallArgTypes]: ...
+        args: Args,
+    ) -> Args: ...
 
 
 class Identity(Enum):

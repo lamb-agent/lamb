@@ -1,10 +1,11 @@
-import typing
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from enum import Enum
 from functools import reduce
 from typing import Protocol, Self, assert_never
 
 import agentdojo.functions_runtime as rt
+
+from lamb import types
 
 
 class IFCError(Exception):
@@ -108,7 +109,11 @@ class Labeler(Protocol):
         tool: rt.Function,
         result: rt.FunctionReturnType,
     ) -> IFCLabel: ...
-    def tool_sink_label(self, tool: Callable) -> IFCLabel: ...
+    def tool_sink_label(
+        self,
+        tool: rt.Function,
+        args: types.Args,
+    ) -> IFCLabel: ...
 
 
 class IFCChecker:
@@ -131,15 +136,14 @@ class IFCChecker:
         self.secret_handling = secret_handling
         self.on_model_context_change = on_model_context_change
 
-    def permitted_tool_call(
+    def _permitted_tool_call(
         self,
-        tool: typing.Callable,
+        sink: IFCLabel,
         model_context: IFCLabel,
         variable_labels: set[IFCLabel],
     ) -> bool:
         """Tool call check succeeds if the egress using this tool is permitted."""
 
-        sink = self.labeler.tool_sink_label(tool)
         source = reduce(IFCLabel.join, variable_labels, model_context)
         return source.permitted_flow(sink)
 
@@ -156,17 +160,16 @@ class IFCChecker:
     def check(
         self,
         tool: rt.Function,
-        args: Mapping[str, rt.FunctionCallArgTypes],
+        args: types.Args,
     ) -> None:
+        sink = self.labeler.tool_sink_label(tool, args)
         for name, arg in args.items():
             variable_labels = {self.var_labels[var] for var in self.find_vars(arg)}
-            if not self.permitted_tool_call(
-                tool.run, self.model_context, variable_labels
-            ):
+            if not self._permitted_tool_call(sink, self.model_context, variable_labels):
                 if (
                     self.secret_handling == SecretHandling.DYNAMIC
-                    and self.permitted_tool_call(
-                        tool.run,
+                    and self._permitted_tool_call(
+                        sink,
                         self.model_context.set_conf(Confidentiality.HIGH),
                         variable_labels,
                     )

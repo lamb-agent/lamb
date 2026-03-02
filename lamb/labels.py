@@ -1,11 +1,14 @@
-from collections.abc import Callable
+from dataclasses import dataclass
 
 from agentdojo import functions_runtime as rt
 
-from lamb import ifc, query_llm, tool_categories
+from lamb import ifc, query_llm, tool_categories, types
 
 
+@dataclass
 class ADLabeler(ifc.Labeler):
+    env: rt.TaskEnvironment
+
     def tool_source_label(
         self, tool: rt.Function, result: rt.FunctionReturnType
     ) -> ifc.IFCLabel:
@@ -18,30 +21,33 @@ class ADLabeler(ifc.Labeler):
 
         integ = (
             ifc.Integrity.TRUSTED
-            if tool in tool_categories.TRUSTED_SOURCE
+            if tool.run in tool_categories.TRUSTED_SOURCE
             else ifc.Integrity.UNTRUSTED
         )
         conf = (
             ifc.Confidentiality.HIGH
-            if tool in tool_categories.HIGH_CONF_SOURCE
+            if tool.run in tool_categories.HIGH_CONF_SOURCE
             else ifc.Confidentiality.LOW
         )
         return ifc.IFCLabel(integ, conf)
 
-    def tool_sink_label(self, tool: Callable) -> ifc.IFCLabel:
+    def tool_sink_label(
+        self,
+        tool: rt.Function,
+        args: types.Args,
+    ) -> ifc.IFCLabel:
         if tool not in tool_categories.ALL:
             # nested llms preserve IFC, so they are fine as a sink
             return ifc.IFCLabel.top()
 
-        # TODO: ARG_CONF
         integ = (
             ifc.Integrity.TRUSTED
-            if tool in tool_categories.TRUSTED_SINK
+            if tool.run in tool_categories.TRUSTED_SINK
             else ifc.Integrity.UNTRUSTED
         )
         conf = (
             ifc.Confidentiality.HIGH
-            if tool in tool_categories.HIGH_CONF_SINK
+            if tool.run in tool_categories.HIGH_CONF_SOURCE
             else ifc.Confidentiality.LOW
         )
         return ifc.IFCLabel(integ, conf)

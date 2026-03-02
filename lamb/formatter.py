@@ -1,4 +1,4 @@
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from typing import assert_never
 
 import agentdojo.functions_runtime as rt
@@ -55,8 +55,8 @@ class VariableFormatter(types.Formatter):
     def expand(
         self,
         tool: rt.Function,
-        args: Mapping[str, rt.FunctionCallArgTypes],
-    ) -> Mapping[str, rt.FunctionCallArgTypes]:
+        args: types.Args,
+    ) -> types.Args:
         """Replace variable references in tool call args with their respective value.
 
         Assuming the arg is: "Summarize this: <variable1/>"
