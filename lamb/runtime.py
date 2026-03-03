@@ -36,7 +36,12 @@ class Runtime:
     ) -> tuple[rt.FunctionReturnType, str | None]:
         custom = self.custom_functions.get(tool)
         if custom:
-            return custom(**args)
+            try:
+                result = custom(**args)
+            except Exception as e:  # noqa: BLE001
+                return "", str(e)
+            else:
+                return result, None
 
         return self.functions_runtime.run_function(self.env, tool, args)
 

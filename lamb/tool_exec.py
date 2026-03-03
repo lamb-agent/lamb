@@ -64,7 +64,7 @@ class ToolExec:
                 if tool.name in ["query_llm", "query_llm_structured"]:
                     assert isinstance(tool_call_result, query_llm.QueryLlmResponse)
                     history = tool_call_result.history
-                    tool_call_result = tool_call_result.response
+                    # the response is extracted automatically by the stringify method
                 try:
                     formatted_tool_call_result = self.formatter.format(
                         tool,

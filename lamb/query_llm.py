@@ -6,6 +6,7 @@ import agentdojo.functions_runtime as rt
 import jsonschema
 import pydantic
 from agentdojo.types import ChatMessage
+from pydantic.main import IncEx
 
 from lamb import ifc, runtime, types
 
@@ -19,6 +20,27 @@ class QueryLlmResponse(pydantic.BaseModel):
     response: str | dict
     history: list[ChatMessage]
     ifc_label: ifc.IFCLabel | None
+
+    def model_dump(
+        self,
+        *,
+        mode: str = "python",
+        include: IncEx | None = None,
+        exclude: IncEx | None = None,
+        context: typing.Any | None = None,
+        by_alias: bool | None = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        exclude_computed_fields: bool = False,
+        round_trip: bool = False,
+        warnings: bool | typing.Literal["none", "warn", "error"] = True,
+        fallback: Callable[[typing.Any], typing.Any] | None = None,
+        serialize_as_any: bool = False,
+    ) -> dict[str, typing.Any]:
+        """Override pydantic model dump to include the response only."""
+
+        return self.response  # type: ignore
 
 
 def query_llm(agent: "Agent", prompt: str) -> QueryLlmResponse:
