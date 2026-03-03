@@ -50,37 +50,45 @@ class ToolExec:
             args = self.formatter.expand(tool, tool_call.args)
 
             tool_call_result, error = self.runtime.exec(tool_call.function, args)
-            history: list[ChatMessage] | None = None
-            if error is None and tool.name in ["query_llm", "query_llm_structured"]:
-                assert isinstance(tool_call_result, query_llm.QueryLlmResponse)
-                history = tool_call_result.history
-                tool_call_result = tool_call_result.response
-            tool_call_id = tool_call.id
-            try:
-                formatted_tool_call_result = self.formatter.format(
-                    tool,
-                    tool_call_result,
-                )
+            result: ChatToolResultMessage
+            if error is not None:
                 result = ChatToolResultMessage(
                     role="tool",
-                    content=[
-                        text_content_block_from_string(formatted_tool_call_result)
-                    ],
-                    tool_call_id=tool_call_id,
+                    content=[text_content_block_from_string("")],
+                    tool_call_id=tool_call.id,
                     tool_call=tool_call,
                     error=error,
                 )
-                result["history"] = history  # type: ignore
-                tool_call_results.append(result)
-            except ifc.IFCError as e:
-                result = ChatToolResultMessage(
-                    role="tool",
-                    content=[],
-                    tool_call_id=tool_call_id,
-                    tool_call=tool_call,
-                    error=str(e),
-                )
-                result["history"] = history  # type: ignore
-                tool_call_results.append(result)
+            else:
+                history: list[ChatMessage] | None = None
+                if tool.name in ["query_llm", "query_llm_structured"]:
+                    assert isinstance(tool_call_result, query_llm.QueryLlmResponse)
+                    history = tool_call_result.history
+                    tool_call_result = tool_call_result.response
+                try:
+                    formatted_tool_call_result = self.formatter.format(
+                        tool,
+                        tool_call_result,
+                    )
+                    result = ChatToolResultMessage(
+                        role="tool",
+                        content=[
+                            text_content_block_from_string(formatted_tool_call_result)
+                        ],
+                        tool_call_id=tool_call.id,
+                        tool_call=tool_call,
+                        error=error,
+                    )
+                    result["history"] = history  # type: ignore
+                except ifc.IFCError as e:
+                    result = ChatToolResultMessage(
+                        role="tool",
+                        content=[text_content_block_from_string("")],
+                        tool_call_id=tool_call.id,
+                        tool_call=tool_call,
+                        error=str(e),
+                    )
+                    result["history"] = history  # type: ignore
+            tool_call_results.append(result)
 
         return tool_call_results
