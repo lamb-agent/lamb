@@ -200,6 +200,7 @@ class Agent:
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime(functions_runtime, env, custom_functions),
                 formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
+                ifc_checker=ifc_checker,
             ),
         )
 

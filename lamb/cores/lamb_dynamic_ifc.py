@@ -52,6 +52,7 @@ def b_low_make_core(
     return AgentCore(
         runtime=runtime,
         formatter=lamb.formatter.VariableFormatter.ifc(b_ifc_checker),
+        ifc_checker=b_ifc_checker,
     )
 
 
@@ -153,4 +154,5 @@ def p_make_core(
     return AgentCore(
         runtime=runtime,
         formatter=formatter,
+        ifc_checker=p_ifc_checker,
     )

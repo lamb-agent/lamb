@@ -51,6 +51,7 @@ def b_high_make_core(
     return AgentCore(
         runtime=b_high_runtime,
         formatter=lamb.formatter.VariableFormatter.ifc(b_high_ifc_checker),
+        ifc_checker=b_high_ifc_checker,
     )
 
 
@@ -86,6 +87,7 @@ def b_low_make_core(
     return AgentCore(
         runtime=b_low_runtime,
         formatter=lamb.formatter.VariableFormatter.ifc(b_low_ifc_checker),
+        ifc_checker=b_low_ifc_checker,
     )
 
 
@@ -124,6 +126,7 @@ def p_high_make_core(
     return AgentCore(
         runtime=p_high_runtime,
         formatter=lamb.formatter.VariableFormatter.ifc(p_high_ifc_checker),
+        ifc_checker=p_high_ifc_checker,
     )
 
 
@@ -161,7 +164,7 @@ def p_low_make_core(
 
     p_low_formatter = lamb.formatter.VariableFormatter.ifc(p_low_ifc_checker)
 
-    def determine_agent(prompt: str, ifc_label: str) -> Agent:
+    def determine_agent(ifc_label: str) -> Agent:
         agent: Agent
         match ifc_label:
             case "UL":
@@ -185,7 +188,7 @@ def p_low_make_core(
         prompt: str, ifc_label: str
     ) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_index
-        agent = determine_agent(prompt, ifc_label)
+        agent = determine_agent(ifc_label)
         response = lamb.query_llm.query_llm(agent, prompt)
         label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
@@ -203,7 +206,7 @@ def p_low_make_core(
         ifc_label: str,
     ) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_structured_index
-        agent = determine_agent(prompt, ifc_label)
+        agent = determine_agent(ifc_label)
         response = lamb.query_llm.query_llm_structured(agent, prompt, json_schema)
         label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
@@ -224,4 +227,5 @@ def p_low_make_core(
     return AgentCore(
         runtime=p_low_runtime,
         formatter=p_low_formatter,
+        ifc_checker=p_low_ifc_checker,
     )
