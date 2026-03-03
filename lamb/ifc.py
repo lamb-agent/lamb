@@ -142,6 +142,19 @@ class IFCChecker:
         source = self.labeler.tool_source_label(tool, result)
         sink = self.model_context
         do_hide = not source.permitted_flow(sink)
+        # if secret handling is dynamic, we prefer tainting the model
+        # over hiding the result in a variable
+        if (
+            do_hide
+            and self.secret_handling == SecretHandling.DYNAMIC
+            and source.permitted_flow(sink.set_conf(Confidentiality.HIGH))
+        ):
+            # NOTE: For the single_llm upgrading the integrity
+            # might also be a valid use-case
+            self.model_context = self.model_context.set_conf(Confidentiality.HIGH)
+            self.on_model_context_change(self.model_context)
+            do_hide = False
+
         if do_hide:
             self.var_labels[var] = source
         return do_hide
@@ -160,17 +173,6 @@ class IFCChecker:
             source = reduce(IFCLabel.join, variable_labels, self.model_context)
             total_source = total_source.join(source)
             if not source.permitted_flow(sink):
-                if self.secret_handling == SecretHandling.DYNAMIC and source.set_conf(
-                    Confidentiality.HIGH
-                ).permitted_flow(sink):
-                    # NOTE: For the single_llm upgrading the integrity
-                    # might also be a valid use-case
-                    self.model_context = self.model_context.set_conf(
-                        Confidentiality.HIGH
-                    )
-                    self.on_model_context_change(self.model_context)
-                    continue
-
                 raise IFCError(
                     f"The argument `{name}` contains a variable that violates the IFC policies"  # noqa: E501
                 )
