@@ -215,7 +215,7 @@ class ADLabeler(ifc.Labeler):
             case fn if fn in tool_categories.HIGH_CONF_SINK:
                 conf = ifc.Confidentiality.HIGH
             case fn if fn in tool_categories.LOW_CONF_SINK:
-                conf = ifc.Confidentiality.HIGH
+                conf = ifc.Confidentiality.LOW
             case fn if fn in tool_categories.ARG_CONF_SINK:
                 conf = ARG_CONF_EVAL[fn](**all_args)
             case _:

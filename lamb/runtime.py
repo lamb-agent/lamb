@@ -9,6 +9,7 @@ from lamb import types
 class Runtime:
     functions_runtime: rt.FunctionsRuntime
     env: rt.TaskEnvironment
+    custom_functions: dict[str, Callable]
 
     def __init__(
         self,
@@ -19,6 +20,7 @@ class Runtime:
         for fn in custom_functions:
             functions_runtime.register_function(fn)
         self.functions_runtime = functions_runtime
+        self.custom_functions = {fn.name: fn.run for fn in custom_functions}
         self.env = env
 
     def tools(self) -> list[str]:
@@ -32,10 +34,19 @@ class Runtime:
         tool: str,
         args: types.Args,
     ) -> tuple[rt.FunctionReturnType, str | None]:
+        custom = self.custom_functions.get(tool)
+        if custom:
+            return custom(**args)
+
         return self.functions_runtime.run_function(self.env, tool, args)
 
-    def set_functions(self, fns: list[rt.Function]) -> None:
+    def set_functions(
+        self, fns: list[rt.Function], custom_functions: list[rt.Function]
+    ) -> None:
         self.functions_runtime = rt.FunctionsRuntime(fns)
+        for fn in custom_functions:
+            self.functions_runtime.register_function(fn)
+        self.custom_functions = {fn.name: fn.run for fn in custom_functions}
 
     @staticmethod
     def default(

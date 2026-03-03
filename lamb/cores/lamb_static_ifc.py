@@ -161,28 +161,31 @@ def p_low_make_core(
 
     p_low_formatter = lamb.formatter.VariableFormatter.ifc(p_low_ifc_checker)
 
-    def determine_agent(prompt: str) -> Agent:
-        label = p_low_ifc_checker.response_label(prompt)
+    def determine_agent(prompt: str, ifc_label: str) -> Agent:
         agent: Agent
-        match label:
-            case lamb.ifc.IFCLabel.UL:
+        match ifc_label:
+            case "UL":
                 agent = b_low_llm
-            case lamb.ifc.IFCLabel.UH:
+            case "UH":
                 agent = b_high_llm
-            case lamb.ifc.IFCLabel.TH:
+            case "TH":
                 agent = p_high_llm
-            case lamb.ifc.IFCLabel.TL:
+            case "TL":
                 # this case shouldn't happen if the LLM is smart
                 raise ValueError(
                     "There is no point in calling query_llm without variables."
                 )
+            case _:
+                raise ValueError("Illegal IFC label")
         return agent
 
     query_llm_index = 0
 
-    def p_low_query_llm_tool(prompt: str) -> lamb.query_llm.QueryLlmResponse:
+    def p_low_query_llm_tool(
+        prompt: str, ifc_label: str
+    ) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_index
-        agent = determine_agent(prompt)
+        agent = determine_agent(prompt, ifc_label)
         response = lamb.query_llm.query_llm(agent, prompt)
         label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):
@@ -195,10 +198,12 @@ def p_low_make_core(
     query_llm_structured_index = 0
 
     def p_low_query_llm_structured_tool(
-        prompt: str, json_schema: dict
+        prompt: str,
+        json_schema: dict,
+        ifc_label: str,
     ) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_structured_index
-        agent = determine_agent(prompt)
+        agent = determine_agent(prompt, ifc_label)
         response = lamb.query_llm.query_llm_structured(agent, prompt, json_schema)
         label = response.ifc_label
         if label and not label.permitted_flow(lamb.ifc.IFCLabel.TL):

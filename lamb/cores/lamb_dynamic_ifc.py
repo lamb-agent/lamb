@@ -41,7 +41,7 @@ def b_low_make_core(
         high_conf_sink_fns = filter_tools(
             read_only_fns, lamb.tool_categories.HIGH_CONF_SINK
         )
-        runtime.set_functions(high_conf_sink_fns)
+        runtime.set_functions(high_conf_sink_fns, [])
 
     b_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UL,
@@ -110,9 +110,8 @@ def p_make_core(
         query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(
             b_llm
         )
-        high_conf_sink_fns.extend([query_llm, query_llm_structured])
 
-        runtime.set_functions(high_conf_sink_fns)
+        runtime.set_functions(high_conf_sink_fns, [query_llm, query_llm_structured])
 
     p_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
@@ -126,7 +125,6 @@ def p_make_core(
 
     def p_low_query_llm_tool(prompt: str) -> lamb.query_llm.QueryLlmResponse:
         nonlocal query_llm_index
-        # TODO: change b_llm to HIGH context if context is HIGH
         response = lamb.query_llm.query_llm(b_llm, prompt)
         label = response.ifc_label
         if label and label.integ == lamb.ifc.Integrity.UNTRUSTED:

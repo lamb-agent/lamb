@@ -9,7 +9,6 @@ from openai.types.shared_params import ResponseFormatText
 type CallLLM = Callable[[list[ad.ChatMessage]], ad.ChatMessage]
 type CallTools = Callable[[list[rt.FunctionCall]], list[ad.ChatMessage]]
 type Args = Mapping[str, rt.FunctionCallArgTypes]
-type CheckIFC = Callable[[rt.Function, Args], None]
 
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
 

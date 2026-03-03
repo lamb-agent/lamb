@@ -14,12 +14,14 @@ class VariableFormatter(types.Formatter):
     var_vals: dict[str, str]
     tools: dict[str, int]
     hide_result: Callable[[rt.Function, rt.FunctionReturnType, str], bool]
-    check_call: types.CheckIFC
+    check_call: Callable[[rt.Function, types.Args], ifc.IFCLabel]
 
     def __init__(
         self,
         hide_result: Callable[[rt.Function, rt.FunctionReturnType, str], bool],
-        check_call: types.CheckIFC = lambda _tool, _args: None,
+        check_call: Callable[
+            [rt.Function, types.Args], ifc.IFCLabel
+        ] = lambda _tool, _args: ifc.IFCLabel.top(),
     ) -> None:
         self.var_vals = {}
         self.tools = {}
@@ -85,8 +87,10 @@ class VariableFormatter(types.Formatter):
                 case _:
                     assert_never(arg)
 
-        self.check_call(tool, args)
-        return {key: expand_arg(val) for key, val in args.items()}
+        source_label = self.check_call(tool, args)
+        expanded_args = {key: expand_arg(val) for key, val in args.items()}
+        expanded_args["ifc_label"] = str(source_label)
+        return expanded_args
 
     @staticmethod
     def none() -> "VariableFormatter":

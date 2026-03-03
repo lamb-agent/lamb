@@ -56,7 +56,7 @@ def query_llm_structured(
     return QueryLlmResponse(response=result_dict, history=history, ifc_label=ifc_label)
 
 
-def make_query_llm_fn(fn: Callable[[str], QueryLlmResponse]) -> rt.Function:
+def make_query_llm_fn(fn: Callable[[str, str], QueryLlmResponse]) -> rt.Function:
     return runtime.make_function(
         "query_llm",
         """Query a different LLM.
@@ -71,17 +71,19 @@ def make_query_llm_fn(fn: Callable[[str], QueryLlmResponse]) -> rt.Function:
 
 
 def make_query_llm_fn_with_agent(agent: "Agent") -> rt.Function:
-    return make_query_llm_fn(lambda prompt: query_llm(agent, prompt))
+    return make_query_llm_fn(lambda prompt, _ifc_label: query_llm(agent, prompt))
 
 
 def make_query_llm_structured_fn_with_agent(agent: "Agent") -> rt.Function:
     return make_query_llm_structured_fn(
-        lambda prompt, json_schema: query_llm_structured(agent, prompt, json_schema)
+        lambda prompt, json_schema, _ifc_label: query_llm_structured(
+            agent, prompt, json_schema
+        )
     )
 
 
 def make_query_llm_structured_fn(
-    fn: Callable[[str, dict], QueryLlmResponse],
+    fn: Callable[[str, dict, str], QueryLlmResponse],
 ) -> rt.Function:
     return runtime.make_function(
         "query_llm_structured",

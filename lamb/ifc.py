@@ -136,17 +136,6 @@ class IFCChecker:
         self.secret_handling = secret_handling
         self.on_model_context_change = on_model_context_change
 
-    def _permitted_tool_call(
-        self,
-        sink: IFCLabel,
-        model_context: IFCLabel,
-        variable_labels: set[IFCLabel],
-    ) -> bool:
-        """Tool call check succeeds if the egress using this tool is permitted."""
-
-        source = reduce(IFCLabel.join, variable_labels, model_context)
-        return source.permitted_flow(sink)
-
     def hide_result(
         self, tool: rt.Function, result: rt.FunctionReturnType, var: str
     ) -> bool:
@@ -161,19 +150,19 @@ class IFCChecker:
         self,
         tool: rt.Function,
         args: types.Args,
-    ) -> None:
+    ) -> IFCLabel:
         sink = self.labeler.tool_sink_label(tool, args)
+        total_source = self.model_context
         for name, arg in args.items():
+            # we iterate over the arguments for a better error message,
+            # we could just join all from the start
             variable_labels = {self.var_labels[var] for var in self.find_vars(arg)}
-            if not self._permitted_tool_call(sink, self.model_context, variable_labels):
-                if (
-                    self.secret_handling == SecretHandling.DYNAMIC
-                    and self._permitted_tool_call(
-                        sink,
-                        self.model_context.set_conf(Confidentiality.HIGH),
-                        variable_labels,
-                    )
-                ):
+            source = reduce(IFCLabel.join, variable_labels, self.model_context)
+            total_source = total_source.join(source)
+            if not source.permitted_flow(sink):
+                if self.secret_handling == SecretHandling.DYNAMIC and source.set_conf(
+                    Confidentiality.HIGH
+                ).permitted_flow(sink):
                     # NOTE: For the single_llm upgrading the integrity
                     # might also be a valid use-case
                     self.model_context = self.model_context.set_conf(
@@ -185,6 +174,7 @@ class IFCChecker:
                 raise IFCError(
                     f"The argument `{name}` contains a variable that violates the IFC policies"  # noqa: E501
                 )
+        return total_source
 
     def find_vars(self, arg: rt.FunctionCallArgTypes) -> set[str]:
         """Find a subset of variables from the given set of variables
