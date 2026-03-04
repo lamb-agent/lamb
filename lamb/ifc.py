@@ -162,11 +162,12 @@ class IFCChecker:
     def check(
         self,
         tool: rt.Function,
-        args: types.Args,
+        hidden_args: types.Args,
+        expanded_args: types.Args,
     ) -> IFCLabel:
-        sink = self.labeler.tool_sink_label(tool, args)
+        sink = self.labeler.tool_sink_label(tool, expanded_args)
         total_source = self.model_context
-        for name, arg in args.items():
+        for name, arg in hidden_args.items():
             # we iterate over the arguments for a better error message,
             # we could just join all from the start
             variable_labels = {self.var_labels[var] for var in self.find_vars(arg)}
