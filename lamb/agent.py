@@ -13,6 +13,7 @@ import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
+import lamb.tool_categories
 import lamb.tool_exec
 import lamb.types
 
@@ -221,6 +222,26 @@ class Agent:
                 labeler,
                 lamb.ifc.SecretHandling.STATIC,
             ),
+        )
+
+    @staticmethod
+    def bounded_make_core(
+        functions_runtime: rt.FunctionsRuntime, env: rt.TaskEnvironment
+    ) -> AgentCore:
+        all_fns = list(functions_runtime.functions.values())
+        read_only_fns = filter_tools(
+            all_fns,
+            lamb.tool_categories.READ_ONLY
+            & lamb.tool_categories.UNTRUSTED_SINK
+            & lamb.tool_categories.HIGH_CONF_SINK,
+        )
+        # no nested llms
+        runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(read_only_fns), env)
+
+        return AgentCore(
+            runtime=runtime,
+            # we are already at TOP
+            formatter=lamb.formatter.VariableFormatter.none(),
         )
 
     @staticmethod

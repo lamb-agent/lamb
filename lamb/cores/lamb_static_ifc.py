@@ -1,3 +1,5 @@
+from typing import assert_never
+
 import agentdojo.functions_runtime as rt
 
 import lamb.formatter
@@ -13,7 +15,6 @@ from lamb.agent import (
     AgentCore,
     filter_tools,
 )
-from typing import assert_never
 
 
 def make_core(
@@ -23,37 +24,6 @@ def make_core(
     labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
     return p_low_make_core(model, functions_runtime, env, labeler)
-
-
-def b_high_make_core(
-    functions_runtime: rt.FunctionsRuntime,
-    env: rt.TaskEnvironment,
-    labeler: lamb.ifc.Labeler,
-) -> AgentCore:
-    all_fns = list(functions_runtime.functions.values())
-
-    # no nested llms
-    b_high_runtime = lamb.runtime.Runtime.default(
-        functions_runtime=rt.FunctionsRuntime(
-            filter_tools(
-                all_fns,
-                lamb.tool_categories.READ_ONLY
-                & lamb.tool_categories.UNTRUSTED_SINK
-                & lamb.tool_categories.HIGH_CONF_SINK,
-            )
-        ),
-        env=env,
-    )
-    b_high_ifc_checker = lamb.ifc.IFCChecker(
-        model_context=lamb.ifc.IFCLabel.UH,
-        labeler=labeler,
-        secret_handling=lamb.ifc.SecretHandling.STATIC,
-    )
-    return AgentCore(
-        runtime=b_high_runtime,
-        formatter=lamb.formatter.VariableFormatter.ifc(b_high_ifc_checker),
-        ifc_checker=b_high_ifc_checker,
-    )
 
 
 def b_low_make_core(
@@ -66,7 +36,7 @@ def b_low_make_core(
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_high_make_core(functions_runtime, env, labeler),
+        make_core=lambda: Agent.bounded_make_core(functions_runtime, env),
     )
     b_low_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     b_low_runtime = lamb.runtime.Runtime(
@@ -102,7 +72,7 @@ def p_high_make_core(
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_high_make_core(functions_runtime, env, labeler),
+        make_core=lambda: Agent.bounded_make_core(functions_runtime, env),
     )
     p_high_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     p_high_query_llm_structured = (
@@ -140,7 +110,7 @@ def p_low_make_core(
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_high_make_core(functions_runtime, env, labeler),
+        make_core=lambda: Agent.bounded_make_core(functions_runtime, env),
     )
 
     b_low_llm = Agent.bounded(

@@ -56,27 +56,6 @@ def b_low_make_core(
     )
 
 
-# TODO: Can we merge this with that of lamb_static_ifc?
-def b_high_make_core(
-    all_fns: list[rt.Function],
-    env: rt.TaskEnvironment,
-) -> AgentCore:
-    read_only_fns = filter_tools(
-        all_fns,
-        lamb.tool_categories.READ_ONLY
-        & lamb.tool_categories.UNTRUSTED_SINK
-        & lamb.tool_categories.HIGH_CONF_SINK,
-    )
-    # no nested llms
-    runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(read_only_fns), env)
-
-    return AgentCore(
-        runtime=runtime,
-        # we are already at TOP
-        formatter=lamb.formatter.VariableFormatter.none(),
-    )
-
-
 def p_make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
@@ -105,7 +84,7 @@ def p_make_core(
         b_llm = Agent.bounded(
             model,
             lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-            lambda: b_high_make_core(all_fns, env),
+            lambda: Agent.bounded_make_core(functions_runtime, env),
         )
         query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_llm)
         query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(
