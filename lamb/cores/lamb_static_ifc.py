@@ -13,6 +13,7 @@ from lamb.agent import (
     AgentCore,
     filter_tools,
 )
+from typing import assert_never
 
 
 def make_core(
@@ -166,20 +167,20 @@ def p_low_make_core(
 
     def determine_agent(ifc_label: str) -> Agent:
         agent: Agent
-        match ifc_label:
-            case "UL":
+        match lamb.ifc.IFCLabel.from_str(ifc_label):
+            case lamb.ifc.IFCLabel.UL:
                 agent = b_low_llm
-            case "UH":
+            case lamb.ifc.IFCLabel.UH:
                 agent = b_high_llm
-            case "TH":
+            case lamb.ifc.IFCLabel.TH:
                 agent = p_high_llm
-            case "TL":
+            case lamb.ifc.IFCLabel.TL:
                 # this case shouldn't happen if the LLM is smart
                 raise ValueError(
                     "There is no point in calling query_llm without variables."
                 )
-            case _:
-                raise ValueError("Illegal IFC label")
+            case _e:
+                assert_never(_e)
         return agent
 
     query_llm_index = 0

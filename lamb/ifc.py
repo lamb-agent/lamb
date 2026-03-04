@@ -76,6 +76,20 @@ class IFCLabel(Enum):
             case _:
                 assert_never(self)
 
+    @staticmethod
+    def from_str(string: str) -> "IFCLabel":
+        match string:
+            case "TL":
+                return IFCLabel.TL
+            case "TH":
+                return IFCLabel.TH
+            case "UL":
+                return IFCLabel.UL
+            case "UH":
+                return IFCLabel.UH
+            case errorLabel:
+                raise ValueError(f"Unexpected IFCLabel: {errorLabel}")
+
     def __init__(self, integ: Integrity, conf: Confidentiality) -> None:
         self.integ = integ
         self.conf = conf
