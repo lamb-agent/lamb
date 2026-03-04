@@ -178,29 +178,49 @@ class Agent:
             ),
         )
 
-    # TODO: investigate how labeling is for query_llm funs as sources
     @staticmethod
-    def dual_ifc(
+    def dual_ifc_dynamic(
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
-        ifc_checker: lamb.ifc.IFCChecker,
+        labeler: lamb.ifc.Labeler,
     ) -> "Agent":
-        q_llm = Agent.quarantined(model)
-        custom_functions = [
-            lamb.query_llm.make_query_llm_fn_with_agent(q_llm),
-            lamb.query_llm.make_query_llm_structured_fn_with_agent(q_llm),
-        ]
+        from cores.dual_ifc import make_core  # noqa: PLC0415
 
         return Agent(
             name="dual-ifc-priviledged",
             model=model,
             identity=lamb.types.Identity.PRIVILEDGED,
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
-            make_core=lambda: AgentCore(
-                runtime=lamb.runtime.Runtime(functions_runtime, env, custom_functions),
-                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
-                ifc_checker=ifc_checker,
+            make_core=lambda: make_core(
+                model,
+                functions_runtime,
+                env,
+                labeler,
+                lamb.ifc.SecretHandling.DYNAMIC,
+            ),
+        )
+
+    @staticmethod
+    def dual_ifc_static(
+        model: lamb.llm.Llm,
+        functions_runtime: rt.FunctionsRuntime,
+        env: rt.TaskEnvironment,
+        labeler: lamb.ifc.Labeler,
+    ) -> "Agent":
+        from cores.dual_ifc import make_core  # noqa: PLC0415
+
+        return Agent(
+            name="dual-ifc-priviledged",
+            model=model,
+            identity=lamb.types.Identity.PRIVILEDGED,
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
+            make_core=lambda: make_core(
+                model,
+                functions_runtime,
+                env,
+                labeler,
+                lamb.ifc.SecretHandling.STATIC,
             ),
         )
 
