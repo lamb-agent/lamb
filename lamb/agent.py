@@ -128,7 +128,7 @@ class Agent:
             name="single",
             model=model,
             identity=lamb.types.Identity.SINGLE,
-            system_prompt=lamb.prompts.SINGLE_LLM_SYTEM_PROMPT,
+            system_prompt=lamb.prompts.SINGLE_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
                 formatter=lamb.formatter.VariableFormatter.none(),

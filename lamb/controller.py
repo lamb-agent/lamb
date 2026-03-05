@@ -11,7 +11,7 @@ class Controller:
     call_llm: types.CallLLM
     call_tools: types.CallTools
     identity: types.Identity
-    max_iters: int = 25
+    max_iters: int = 10
 
     def loop(self, messages: list[ChatMessage]) -> list[ChatMessage]:
         # Prevent infinite loops
