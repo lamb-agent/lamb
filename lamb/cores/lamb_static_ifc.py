@@ -36,7 +36,7 @@ def b_low_make_core(
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: Agent.bounded_make_core(functions_runtime, env),
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
     )
     b_low_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     b_low_runtime = lamb.runtime.Runtime(
@@ -72,7 +72,7 @@ def p_high_make_core(
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: Agent.bounded_make_core(functions_runtime, env),
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
     )
     p_high_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     p_high_query_llm_structured = (
@@ -110,7 +110,7 @@ def p_low_make_core(
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: Agent.bounded_make_core(functions_runtime, env),
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
     )
 
     b_low_llm = Agent.bounded(

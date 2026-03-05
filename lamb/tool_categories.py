@@ -291,7 +291,7 @@ thus would taint the model, if revealed."""
 # TODO: Do we have any trusted sinks?
 TRUSTED_SINK: set[typing.Callable] = set()
 """Tools that must only be called with trusted (non-tainted) information."""
-UNTRUSTED_SINK: set[typing.Callable] = ALL
+UNTRUSTED_SINK: set[typing.Callable] = ALL - TRUSTED_SINK
 """Tools that can be called with untrusted (tainted) information."""
 
 HIGH_CONF_SOURCE: set[typing.Callable] = {

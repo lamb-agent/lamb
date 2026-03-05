@@ -225,7 +225,7 @@ class Agent:
         )
 
     @staticmethod
-    def bounded_make_core(
+    def bounded_high_make_core(
         functions_runtime: rt.FunctionsRuntime, env: rt.TaskEnvironment
     ) -> AgentCore:
         all_fns = list(functions_runtime.functions.values())
