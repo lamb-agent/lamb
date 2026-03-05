@@ -21,27 +21,6 @@ class QueryLlmResponse(pydantic.BaseModel):
     history: list[ChatMessage]
     ifc_label: ifc.IFCLabel
 
-    def model_dump(
-        self,
-        *,
-        mode: str = "python",  # noqa: ARG002
-        include: IncEx | None = None,  # noqa: ARG002
-        exclude: IncEx | None = None,  # noqa: ARG002
-        context: typing.Any | None = None,  # noqa: ARG002
-        by_alias: bool | None = None,  # noqa: ARG002
-        exclude_unset: bool = False,  # noqa: ARG002
-        exclude_defaults: bool = False,  # noqa: ARG002
-        exclude_none: bool = False,  # noqa: ARG002
-        exclude_computed_fields: bool = False,  # noqa: ARG002
-        round_trip: bool = False,  # noqa: ARG002
-        warnings: bool | typing.Literal["none", "warn", "error"] = True,  # noqa: ARG002
-        fallback: Callable[[typing.Any], typing.Any] | None = None,  # noqa: ARG002
-        serialize_as_any: bool = False,  # noqa: ARG002
-    ) -> dict[str, typing.Any]:
-        """Override pydantic model dump to include the response only."""
-
-        return self.response  # type: ignore
-
 
 def query_llm(agent: "Agent", prompt: str) -> QueryLlmResponse:
     history, ifc_label = agent.prompt(prompt)

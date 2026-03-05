@@ -5,7 +5,7 @@ import agentdojo.functions_runtime as rt
 import yaml
 from pydantic import BaseModel
 
-from lamb import ifc, tool_categories, types
+from lamb import ifc, tool_categories, types, query_llm
 
 
 class VariableFormatter(types.Formatter):
@@ -77,7 +77,7 @@ class VariableFormatter(types.Formatter):
                 case int() | float() | bool() | None:
                     return arg
                 case str():
-                    return replace_vars(arg)
+                    return replace_vars(arg).strip() # models love to append new lines
                 case list():
                     return [expand_arg(item) for item in arg]
                 case dict():
@@ -130,6 +130,8 @@ def _stringify_result(
             return val
         case dict():
             return dump_fn(val).strip()
+        case query_llm.QueryLlmResponse():
+            return str(val.response)
         case BaseModel():
             return dump_fn(val.model_dump()).strip()
         case Sequence():
