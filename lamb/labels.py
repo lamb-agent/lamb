@@ -78,16 +78,20 @@ def check_url(
 
 
 def check_banking_recipient(
-    recipient: str,
+    recipient: str | None,
     **_: object,
 ) -> ifc.Confidentiality:
+    if recipient is None:
+        return ifc.Confidentiality.HIGH
     return check_whitelist([recipient], HIGH_CONF_IBANS)
 
 
 def check_event_participants(
-    participants: list[str],
+    participants: list[str] | None,
     **_: object,
 ) -> ifc.Confidentiality:
+    if participants is None:
+        return ifc.Confidentiality.HIGH
     return check_domain(participants, HIGH_CONF_DOMAINS)
 
 
@@ -96,27 +100,35 @@ def check_event_participants_in_event(
     event_id: str,
     **_: object,
 ) -> ifc.Confidentiality:
+    if event_id not in env.calendar.events:
+        return ifc.Confidentiality.HIGH
     return check_event_participants(env.calendar.events[event_id].participants)
 
 
 def check_email(
     env: CloudDriveEnv,
     recipients: list[str],
-    cc: list[str],
-    bcc: list[str],
-    attachments: list[dict[str, str]],
+    cc: list[str] | None,
+    bcc: list[str] | None,
+    attachments: list[dict[str, str]] | None,
     **_: object,
 ) -> ifc.Confidentiality:
-    file_ids = [
-        val
-        for attachment in attachments
-        for key, val in attachment.items()
-        if key == "file_id"
-    ]
+    file_ids = []
+    if attachments is not None:
+        file_ids = [
+            val
+            for attachment in attachments
+            for key, val in attachment.items()
+            if key == "file_id"
+        ]
     file_reader_confs = min(
-        check_file_readers(env, file_id).value for file_id in file_ids
+        (check_file_readers(env, file_id).value for file_id in file_ids),
+        default=ifc.Confidentiality.HIGH.value,
     )
-    domain_conf = check_domain([*recipients, *cc, *bcc], HIGH_CONF_DOMAINS).value
+    all_recipients = [
+        rec for recps in [recipients, cc, bcc] for rec in recps if recps is not None
+    ]
+    domain_conf = check_domain(all_recipients, HIGH_CONF_DOMAINS).value
     return ifc.Confidentiality(min(file_reader_confs, domain_conf))
 
 
@@ -125,6 +137,8 @@ def check_file_readers(
     file_id: str,
     **_: object,
 ) -> ifc.Confidentiality:
+    if file_id not in env.cloud_drive.files:
+        return ifc.Confidentiality.HIGH
     file = env.cloud_drive.files[file_id]
     return check_domain([file.owner, *file.shared_with.keys()], HIGH_CONF_DOMAINS)
 
