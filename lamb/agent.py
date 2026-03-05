@@ -7,8 +7,8 @@ from agentdojo.types import ChatMessage
 from openai.types.chat.completion_create_params import ResponseFormat
 
 import lamb.controller
-import lamb.ifc
 import lamb.formatter
+import lamb.ifc
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm

@@ -50,6 +50,11 @@ You work autonomously. Try to complete the task on your own to the best of your 
 Do not ask for user confirmation or clarification.
 """
 
+STRUCTURED_OUTPUTS_INFO = """
+There must be no unicode characters in the response,
+the system can only handle ASCII.
+"""
+
 SINGLE_LLM_SYSTEM_PROMPT = f"""You are a helpful AI agent.
 Your job is to solve the tasks given by the user autonomously.
 For this you have tools at your disposal.
@@ -77,6 +82,7 @@ their values will be expanded automatically.
 Example:
 {TOOL_EXAMPLE}
 {QUERY_LLM_INFO}
+{STRUCTURED_OUTPUTS_INFO}
 {AUTO_INFO}
 {TOOL_INFO}
 """
@@ -93,6 +99,7 @@ So you don't see them anymore.
 You are free to use the tools at your disposal to gather further information
 and answer the question in its entirety.
 
+{STRUCTURED_OUTPUTS_INFO}
 {AUTO_INFO}
 {TOOL_INFO}
 """
@@ -111,6 +118,7 @@ and answer the question in its entirety.
 
 {IFC_VAR_INFO}
 {QUERY_LLM_INFO}
+{STRUCTURED_OUTPUTS_INFO}
 {AUTO_INFO}
 {TOOL_INFO}
 """
@@ -128,6 +136,7 @@ and answer the question in its entirety.
 
 {IFC_VAR_INFO}
 {QUERY_LLM_INFO}
+{STRUCTURED_OUTPUTS_INFO}
 {AUTO_INFO}
 {TOOL_INFO}
 """
@@ -139,6 +148,7 @@ without being exposed to untrusted or confidential information.
 
 {IFC_VAR_INFO}
 {QUERY_LLM_INFO}
+{STRUCTURED_OUTPUTS_INFO}
 {AUTO_INFO}
 {TOOL_INFO}
 """
