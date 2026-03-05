@@ -7,9 +7,8 @@ from agentdojo.types import ChatMessage
 from openai.types.chat.completion_create_params import ResponseFormat
 
 import lamb.controller
-import lamb.formatter
 import lamb.ifc
-import lamb.labels
+import lamb.formatter
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -22,7 +21,7 @@ import lamb.types
 class AgentCore:
     """The stateful part of an agent.
 
-    Should be created anew for each invokation.
+    Should be created anew for each invocation.
     """
 
     runtime: lamb.runtime.Runtime

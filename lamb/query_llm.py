@@ -17,26 +17,26 @@ if typing.TYPE_CHECKING:
 
 
 class QueryLlmResponse(pydantic.BaseModel):
-    response: str | dict
+    response: str | int | float | list | dict
     history: list[ChatMessage]
     ifc_label: ifc.IFCLabel | None
 
     def model_dump(
         self,
         *,
-        mode: str = "python",
-        include: IncEx | None = None,
-        exclude: IncEx | None = None,
-        context: typing.Any | None = None,
-        by_alias: bool | None = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False,
-        exclude_computed_fields: bool = False,
-        round_trip: bool = False,
-        warnings: bool | typing.Literal["none", "warn", "error"] = True,
-        fallback: Callable[[typing.Any], typing.Any] | None = None,
-        serialize_as_any: bool = False,
+        mode: str = "python",  # noqa: ARG002
+        include: IncEx | None = None,  # noqa: ARG002
+        exclude: IncEx | None = None,  # noqa: ARG002
+        context: typing.Any | None = None,  # noqa: ARG002
+        by_alias: bool | None = None,  # noqa: ARG002
+        exclude_unset: bool = False,  # noqa: ARG002
+        exclude_defaults: bool = False,  # noqa: ARG002
+        exclude_none: bool = False,  # noqa: ARG002
+        exclude_computed_fields: bool = False,  # noqa: ARG002
+        round_trip: bool = False,  # noqa: ARG002
+        warnings: bool | typing.Literal["none", "warn", "error"] = True,  # noqa: ARG002
+        fallback: Callable[[typing.Any], typing.Any] | None = None,  # noqa: ARG002
+        serialize_as_any: bool = False,  # noqa: ARG002
     ) -> dict[str, typing.Any]:
         """Override pydantic model dump to include the response only."""
 
@@ -93,12 +93,12 @@ def make_query_llm_fn(fn: Callable[[str, str], QueryLlmResponse]) -> rt.Function
 
 
 def make_query_llm_fn_with_agent(agent: "Agent") -> rt.Function:
-    return make_query_llm_fn(lambda prompt, _ifc_label: query_llm(agent, prompt))
+    return make_query_llm_fn(lambda prompt, ifc_label: query_llm(agent, prompt))  # noqa: ARG005
 
 
 def make_query_llm_structured_fn_with_agent(agent: "Agent") -> rt.Function:
     return make_query_llm_structured_fn(
-        lambda prompt, json_schema, _ifc_label: query_llm_structured(
+        lambda prompt, json_schema, ifc_label: query_llm_structured(  # noqa: ARG005
             agent, prompt, json_schema
         )
     )
