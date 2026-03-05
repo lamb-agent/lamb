@@ -111,6 +111,9 @@ class IFCLabel(Enum):
     def set_integ(self, integ: Integrity) -> Self:
         return type(self)(integ, self.conf)
 
+    def is_high(self) -> bool:
+        return self.conf == Confidentiality.HIGH
+
 
 class SecretHandling(Enum):
     DYNAMIC = "dynamic"
