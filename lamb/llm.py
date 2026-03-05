@@ -14,14 +14,14 @@ from lamb.runtime import Runtime
 
 
 class OllamaModel(Enum):
-    GPT_OSS_20B = "ollama_chat/gpt-oss:20b"
-    GPT_OSS_120B = "openai/gpt-oss:120b"
-    LLAMA3_3_70B = "ollama_chat/llama3.3:70b"
-    LLAMA4_16X17B = "ollama_chat/llama4:16x17b"
-    MINISTRAL = "ollama_chat/ministral-3:3b"
-    MISTRAL = "ollama_chat/mistral:7b"
-    MISTRAL_LARGE_123B = "ollama_chat/mistral-large:123b"
-    GRANITE4 = "ollama_chat/granite4:3b"
+    GPT_OSS_20B = "gpt-oss:20b"
+    GPT_OSS_120B = "gpt-oss:120b"
+    LLAMA3_3_70B = "llama3.3:70b"
+    LLAMA4_16X17B = "llama4:16x17b"
+    MINISTRAL = "ministral-3:3b"
+    MISTRAL = "mistral:7b"
+    MISTRAL_LARGE_123B = "mistral-large:123b"
+    GRANITE4 = "granite4:3b"
 
 
 @dataclass

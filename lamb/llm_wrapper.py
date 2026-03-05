@@ -3,8 +3,6 @@ import json
 from collections.abc import Sequence
 from typing import overload
 
-import litellm
-import litellm.types.utils as litellm_utils
 import openai
 from agentdojo import functions_runtime as rt
 from agentdojo import types as ad
@@ -105,19 +103,17 @@ def _message_to_openai(
 
 
 def _openai_to_tool_call(
-    tool_call: litellm_utils.ChatCompletionMessageToolCall,
+    tool_call: openai_chat.ChatCompletionMessageFunctionToolCall,
 ) -> rt.FunctionCall:
-    name = tool_call.function.name
-    assert name is not None
     return rt.FunctionCall(
-        function=name,
+        function=tool_call.function.name,
         args=json.loads(tool_call.function.arguments),
         id=tool_call.id,
     )
 
 
 def _assistant_message_to_content(
-    message: litellm.Message,
+    message: openai_chat.ChatCompletionMessage,
 ) -> list[ad.MessageContentBlock] | None:
     if message.content is None:
         return None
@@ -125,11 +121,13 @@ def _assistant_message_to_content(
 
 
 def _openai_to_assistant_message(
-    message: litellm.Message,
+    message: openai_chat.ChatCompletionMessage,
 ) -> ad.ChatAssistantMessage:
     if message.tool_calls is not None:
         tool_calls = [
-            _openai_to_tool_call(tool_call) for tool_call in message.tool_calls
+            _openai_to_tool_call(tool_call)
+            for tool_call in message.tool_calls
+            if isinstance(tool_call, openai_chat.ChatCompletionMessageFunctionToolCall)
         ]
     else:
         tool_calls = None
@@ -169,21 +167,18 @@ def prompt(
     temperature: float | None = 0.0,
     reasoning_effort: openai_chat.ChatCompletionReasoningEffort | None = None,
 ) -> ad.ChatMessage:
+    client = openai.OpenAI(api_key=api_key, base_url=base_url)
     openai_messages = [_message_to_openai(message) for message in messages]
     openai_tools = [_function_to_openai(tool) for tool in runtime.functions.values()]
-    completion = litellm.completion(
+    completion = client.chat.completions.create(
         model=model,
         messages=openai_messages,
-        response_format=dict(response_format),
-        base_url=base_url,
+        response_format=response_format,
         tools=openai_tools,
-        api_key=api_key,
         temperature=temperature,
         reasoning_effort=reasoning_effort,
     )
-    assert isinstance(completion, litellm.ModelResponse)
     choice = completion.choices[0]
-    assert isinstance(choice, litellm.Choices)
 
     output = _openai_to_assistant_message(choice.message)
     return output
