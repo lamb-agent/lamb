@@ -24,6 +24,8 @@ Example:
 {TOOL_EXAMPLE}
 This will expand the variables <query_llm_0/> and <query_llm_1/>
 for the underlying tool.
+Important: You MUST send valid JSON for tool calls.
+Variables MUST still be in quotes like so: "<query_llm_0/>".
 
 Variables are the expected outcome for most tools.
 Thus do NOT call a tool multiple times in hopes of different result.
@@ -42,7 +44,9 @@ that you can use as tool arguments.
 With the tool `query_llm_structured` you can extract a structured output
 from the given data. This includes ints, floats, bools and enums.
 However, this output must not contain arbitrary strings.
-So for email addresses and dates, `query_llm` is the better option.
+In case the query llm prompt contains variables classified
+as secret, the structured output may also return the JSON in a variable.
+So for email addresses, dates and secret variables, `query_llm` is the better option.
 """
 
 AUTO_INFO = """
