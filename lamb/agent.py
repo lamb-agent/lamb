@@ -99,7 +99,7 @@ class Agent:
         self,
         user_prompt: str,
         response_format: ResponseFormat = lamb.types.TEXT_FORMAT,
-    ) -> tuple[list[ChatMessage], lamb.ifc.IFCLabel | None]:
+    ) -> tuple[list[ChatMessage], lamb.ifc.IFCLabel]:
         """Prompt the agent with a user prompt.
 
         Returns the resulting chat history and the ejected core.
@@ -107,7 +107,7 @@ class Agent:
 
         history, core = self.run(user_prompt, response_format)
         response = lamb.types.get_response(history)
-        label = None
+        label = lamb.ifc.IFCLabel.top() # default to TOP
         if core.ifc_checker:
             label = core.ifc_checker.response_label(response)
         # expand all variables

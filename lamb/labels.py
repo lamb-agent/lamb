@@ -178,9 +178,6 @@ class ADLabeler(ifc.Labeler):
     ) -> ifc.IFCLabel:
         if tool.name in ["query_llm", "query_llm_structured"]:
             assert isinstance(result, query_llm.QueryLlmResponse)
-            assert result.ifc_label, (
-                "When IFC functions are called, IFC label must be set"
-            )
             return result.ifc_label
 
         integ = (
