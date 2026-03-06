@@ -1,5 +1,6 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+import openai
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
@@ -63,7 +64,10 @@ class Agent:
         executor = lamb.tool_exec.ToolExec(core.runtime, core.formatter)
 
         def call_llm(messages: list[ChatMessage]) -> ChatMessage:
-            return tool_llm.prompt(messages, response_format)
+            try:
+                return tool_llm.prompt(messages, response_format)
+            except openai.InternalServerError:
+                return lamb.types.make_assistant_prompt("The model failed to provide a correctly formatted tool call.")
 
         def call_tools(calls: list[rt.FunctionCall]) -> list[ChatMessage]:
             return executor.exec(calls)
