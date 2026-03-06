@@ -36,7 +36,7 @@ def check_whitelist(
     candidates: list[str],
     allowed: list[str],
 ) -> ifc.Confidentiality:
-    """Return high conf if all canditates are on the whitelist."""
+    """Return high conf if all candidates are on the whitelist."""
 
     return (
         ifc.Confidentiality.HIGH
@@ -49,7 +49,7 @@ def check_domain(
     candidates: list[str],
     allowed: list[str],
 ) -> ifc.Confidentiality:
-    """Return high conf if all canditates end with an allowed domain."""
+    """Return high conf if all candidates end with an allowed domain."""
 
     return (
         ifc.Confidentiality.HIGH
@@ -64,7 +64,7 @@ def check_url(
     candidates: list[str],
     allowed: list[str],
 ) -> ifc.Confidentiality:
-    """Return high conf if all canditates start with an allowed domain."""
+    """Return high conf if all candidates start with an allowed domain."""
 
     return (
         ifc.Confidentiality.HIGH

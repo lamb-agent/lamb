@@ -10,11 +10,13 @@ from openai.types import chat as openai_chat
 from openai.types.chat.completion_create_params import ResponseFormat
 from openai.types.shared_params import FunctionDefinition
 from tenacity import (
-    retry,
+    Retrying,
     retry_if_not_exception_type,
     stop_after_attempt,
     wait_random_exponential,
 )
+
+from lamb import logging
 
 
 def _tool_call_to_openai(
@@ -149,14 +151,6 @@ def _function_to_openai(f: rt.Function) -> openai_chat.ChatCompletionToolParam:
     )
 
 
-@retry(
-    wait=wait_random_exponential(multiplier=1, max=40),
-    stop=stop_after_attempt(3),
-    reraise=True,
-    retry=retry_if_not_exception_type(
-        (openai.BadRequestError, openai.UnprocessableEntityError)
-    ),
-)
 def prompt(
     model: str,
     runtime: rt.FunctionsRuntime,
@@ -164,21 +158,40 @@ def prompt(
     response_format: ResponseFormat,
     base_url: str | None = None,
     api_key: str | None = None,
-    temperature: float | None = 0.0,
+    temperature: float = 0.0,
     reasoning_effort: openai_chat.ChatCompletionReasoningEffort | None = None,
 ) -> ad.ChatMessage:
     client = openai.OpenAI(api_key=api_key, base_url=base_url)
     openai_messages = [_message_to_openai(message) for message in messages]
     openai_tools = [_function_to_openai(tool) for tool in runtime.functions.values()]
-    completion = client.chat.completions.create(
-        model=model,
-        messages=openai_messages,
-        response_format=response_format,
-        tools=openai_tools,
-        temperature=temperature,
-        reasoning_effort=reasoning_effort,
-    )
-    choice = completion.choices[0]
+    for i, attempt in enumerate(
+        Retrying(
+            wait=wait_random_exponential(multiplier=1, max=40),
+            stop=stop_after_attempt(3),
+            reraise=True,
+            retry=retry_if_not_exception_type(
+                (
+                    openai.BadRequestError,
+                    openai.UnprocessableEntityError,
+                    openai.APIConnectionError,
+                )
+            ),
+        )
+    ):
+        temp = temperature + i * 0.1
+        if i > 0:
+            logging.warning(f"Retrying with increased temperature of {temp}.")
+        with attempt:
+            completion = client.chat.completions.create(
+                model=model,
+                messages=openai_messages,
+                response_format=response_format,
+                tools=openai_tools,
+                temperature=temp,
+                reasoning_effort=reasoning_effort,
+            )
+            choice = completion.choices[0]
 
-    output = _openai_to_assistant_message(choice.message)
-    return output
+            output = _openai_to_assistant_message(choice.message)
+            return output
+    raise ValueError("For loop must throw or return.")

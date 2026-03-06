@@ -25,6 +25,9 @@ def info(message: str) -> None:
 def debug(message: str) -> None:
     logger.debug(message)
 
+def warning(message: str) -> None:
+    logger.warning(message)
+
 
 def exception(message: str) -> None:
     logger.exception(message)

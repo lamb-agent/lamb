@@ -53,9 +53,6 @@ class Llm:
             logging.exception("Google API exhausted, waiting...")
             time.sleep(30)
             return self.prompt(runtime, messages, response_format)
-        except openai.APIConnectionError:
-            logging.exception("Failed to connect")
-            sys.exit(1)
 
     @staticmethod
     def ollama_openai(

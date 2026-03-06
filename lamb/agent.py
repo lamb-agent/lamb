@@ -1,9 +1,9 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-import openai
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
+import openai
 from agentdojo.types import ChatMessage
 from openai.types.chat.completion_create_params import ResponseFormat
 
@@ -67,7 +67,9 @@ class Agent:
             try:
                 return tool_llm.prompt(messages, response_format)
             except openai.InternalServerError:
-                return lamb.types.make_assistant_prompt("The model failed to provide a correctly formatted tool call.")
+                return lamb.types.make_assistant_prompt(
+                    "The model failed to provide a correctly formatted tool call."
+                )
 
         def call_tools(calls: list[rt.FunctionCall]) -> list[ChatMessage]:
             return executor.exec(calls)
@@ -111,7 +113,7 @@ class Agent:
 
         history, core = self.run(user_prompt, response_format)
         response = lamb.types.get_response(history)
-        label = lamb.ifc.IFCLabel.top() # default to TOP
+        label = lamb.ifc.IFCLabel.top()  # default to TOP
         if core.ifc_checker:
             label = core.ifc_checker.response_label(response)
         # expand all variables
