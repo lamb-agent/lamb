@@ -76,7 +76,7 @@ def format_chat_message(identity: types.Identity, role: types.Role, text: str) -
     match identity:
         case types.Identity.SINGLE:
             identity_symbol = ":camel:"  # dromeda
-        case types.Identity.PRIVILEDGED:
+        case types.Identity.PRIVILEGED:
             identity_symbol = ":video_game:"  # game controller
         case types.Identity.QUARANTINED:
             identity_symbol = ":no_entry:"

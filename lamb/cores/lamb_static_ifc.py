@@ -122,7 +122,7 @@ def p_low_make_core(
     p_high_llm = Agent(
         name="lamb-static-ifc-high-priviledged",
         model=model,
-        identity=lamb.types.Identity.PRIVILEDGED,
+        identity=lamb.types.Identity.PRIVILEGED,
         system_prompt=lamb.prompts.P_HIGH_LLM_SYSTEM_PROMPT,
         make_core=lambda: p_high_make_core(model, functions_runtime, env, labeler),
     )

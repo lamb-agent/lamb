@@ -29,7 +29,7 @@ class Formatter(Protocol):
 
 class Identity(Enum):
     SINGLE = "single"
-    PRIVILEDGED = "priviledged"
+    PRIVILEGED = "priviledged"
     QUARANTINED = "quarantined"
     BOUNDED = "bounded"
 

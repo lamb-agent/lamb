@@ -170,9 +170,9 @@ class Agent:
         )
 
         return Agent(
-            name="dual-priviledged",
+            name="dual-privileged",
             model=model,
-            identity=lamb.types.Identity.PRIVILEDGED,
+            identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime(
@@ -194,9 +194,9 @@ class Agent:
         from cores.dual_ifc import make_core  # noqa: PLC0415
 
         return Agent(
-            name="dual-ifc-priviledged",
+            name="dual-ifc-privileged",
             model=model,
-            identity=lamb.types.Identity.PRIVILEDGED,
+            identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(
                 model,
@@ -217,9 +217,9 @@ class Agent:
         from cores.dual_ifc import make_core  # noqa: PLC0415
 
         return Agent(
-            name="dual-ifc-priviledged",
+            name="dual-ifc-privileged",
             model=model,
-            identity=lamb.types.Identity.PRIVILEDGED,
+            identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(
                 model,
@@ -273,9 +273,9 @@ class Agent:
         from lamb.cores.lamb_no_ifc import make_core  # noqa: PLC0415
 
         return Agent(
-            name="lamb-no-ifc-priviledged",
+            name="lamb-no-ifc-privileged",
             model=model,
-            identity=lamb.types.Identity.PRIVILEDGED,
+            identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(model, functions_runtime, env),
         )
@@ -290,9 +290,9 @@ class Agent:
         from lamb.cores.lamb_dynamic_ifc import make_core  # noqa: PLC0415
 
         return Agent(
-            name="lamb-dynamic-ifc-priviledged",
+            name="lamb-dynamic-ifc-privileged",
             model=model,
-            identity=lamb.types.Identity.PRIVILEDGED,
+            identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(
                 model,
@@ -312,9 +312,9 @@ class Agent:
         from lamb.cores.lamb_static_ifc import make_core  # noqa: PLC0415
 
         return Agent(
-            name="lamb-static-ifc-priviledged",
+            name="lamb-static-ifc-privileged",
             model=model,
-            identity=lamb.types.Identity.PRIVILEDGED,
+            identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(
                 model,
