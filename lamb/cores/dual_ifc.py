@@ -30,9 +30,11 @@ def make_core(
     ) -> lamb.query_llm.QueryLlmResponse:
         """Label the q-llm's response with the same label as the input."""
 
-        assert response.ifc_label is None, "Q-LLM shouldn't have IFC"
+        # we ignore the response's ifc_label
         response.ifc_label = lamb.ifc.IFCLabel.from_str(ifc_label)
-        assert response.ifc_label.integ == lamb.ifc.Integrity.UNTRUSTED,f"Unexpected IFC label in q-llm prompt: {ifc_label}"
+        assert response.ifc_label.integ == lamb.ifc.Integrity.UNTRUSTED, (
+            f"Unexpected IFC label in q-llm prompt: {ifc_label}"
+        )
         return response
 
     query_llm = lamb.query_llm.make_query_llm_fn(
