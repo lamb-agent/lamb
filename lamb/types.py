@@ -41,7 +41,14 @@ class Role(Enum):
     SYSTEM = "system"
 
 
-def make_user_prompt(prompt: str) -> ad.ChatMessage:
+def make_system_prompt(prompt: str) -> ad.ChatSystemMessage:
+    return {
+        "role": "system",
+        "content": [ad.text_content_block_from_string(prompt)],
+    }
+
+
+def make_user_prompt(prompt: str) -> ad.ChatUserMessage:
     return {
         "role": "user",
         "content": [ad.text_content_block_from_string(prompt)],

@@ -95,7 +95,7 @@ class Agent:
         controller = self.assemble_controller(core, response_format)
         history = controller.loop(
             [
-                lamb.types.make_user_prompt(self.system_prompt),
+                lamb.types.make_system_prompt(self.system_prompt),
                 lamb.types.make_user_prompt(user_prompt),
             ]
         )

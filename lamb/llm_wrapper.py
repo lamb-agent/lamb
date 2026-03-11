@@ -67,8 +67,8 @@ def _message_to_openai(
 ) -> openai_chat.ChatCompletionMessageParam:
     match message["role"]:
         case "system":
-            return openai_chat.ChatCompletionDeveloperMessageParam(
-                role="developer",
+            return openai_chat.ChatCompletionSystemMessageParam(
+                role="system",
                 content=_content_blocks_to_openai_content_blocks(message),
             )
         case "user":
