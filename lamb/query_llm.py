@@ -65,7 +65,16 @@ def make_query_llm_fn(fn: Callable[[str, str], QueryLlmResponse]) -> rt.Function
         Variables, like <tool_result_1/>, given in the prompt are automatically expanded.
         The result is always a string stored in a new variable.
         You can use it for more tool calls or the final answer to the user.""",  # noqa: E501
-        [("prompt", "str", "The prompt to the LLM. May contain variables.")],
+        [
+            (
+                "prompt",
+                "str",
+                """The prompt to the LLM. May contain variables.
+You must give a detailed prompt to this function,
+outlining what you are trying to achieve,
+what you have done and what the specific task for the llm is.""",
+            )
+        ],
         fn,
     )
 
@@ -100,7 +109,14 @@ def make_query_llm_structured_fn(
         contain arbitrary strings (but enum values, ints, floats, bools).
         If the schema allows for arbitrary strings, the tool call will fail.""",  # noqa: E501
         [
-            ("prompt", "str", "The prompt to the LLM. May contain variables."),
+            (
+                "prompt",
+                "str",
+                """The prompt to the LLM. May contain variables.
+You must give a detailed prompt to this function,
+outlining what you are trying to achieve,
+what you have done and what the specific task for the llm is.""",
+            ),
             (
                 "json_schema",
                 "dict",
