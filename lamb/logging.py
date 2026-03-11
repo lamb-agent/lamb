@@ -4,8 +4,27 @@ from collections.abc import Sequence
 import rich.logging
 from agentdojo.functions_runtime import FunctionCall
 from agentdojo.types import ChatMessage
+from agentdojo.logging import Logger
 
 from lamb import types
+
+
+class CaptureLogger(Logger):
+    """A simple logger that captures the `log(messages, ...)` call
+    into an in-memory list so that it can be serialized after
+     unning a test.
+    """
+
+    def __init__(self) -> None:
+        self.messages = []
+        self.error = None
+
+    def log_error(self, error: str) -> None:
+        self.error = error
+
+    def log(self, messages: list[ChatMessage]) -> None:
+        self.messages = messages
+
 
 logger = logging.getLogger(__name__)
 logger.propagate = False  # Prevent double logging from root logger
@@ -25,12 +44,17 @@ def info(message: str) -> None:
 def debug(message: str) -> None:
     logger.debug(message)
 
+
 def warning(message: str) -> None:
     logger.warning(message)
 
 
 def exception(message: str) -> None:
     logger.exception(message)
+
+
+def log_error(message: str) -> None:
+    logger.error(message)
 
 
 def log_message(identity: types.Identity, message: ChatMessage) -> None:

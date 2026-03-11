@@ -1,5 +1,7 @@
+import dataclasses
 import json
 import subprocess
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -10,7 +12,6 @@ import agentdojo.agent_pipeline as pipeline
 import agentdojo.attacks
 import agentdojo.base_tasks
 import agentdojo.benchmark
-import agentdojo.logging
 import agentdojo.task_suite
 from agentdojo.task_suite.load_suites import get_suite
 from agentdojo.types import ChatMessage
@@ -19,19 +20,17 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from lamb import agent, logging
 
 
-# This is only used for serializing/deserializing runs
 class TaskResults(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    suite_name: str
     user_task_id: str | None
     injection_task_id: str | None
     attack_type: str | None
     injections: dict[str, str] | None
     messages: list[ChatMessage]
-    error: str | None
     utility: bool
     security: bool
     duration: float
+    error: str | None = None
 
     @model_validator(mode="after")
     def check_messages(self) -> Self:
@@ -39,17 +38,17 @@ class TaskResults(BaseModel):
             raise ValueError("TaskResults must have at least two messages.")
         return self
 
-
-@dataclass
-class TaskScores:
-    utility: bool
-    security: bool
+    def save(self, log_dir: Path, filename: str) -> None:
+        file_path = log_dir / filename
+        with file_path.open("w") as f:
+            json.dump(self.model_dump(mode="json"), f, indent=2)
 
 
 class SuiteResults:
-    user_runs: dict[str, TaskScores]
-    injection_runs: dict[str, TaskScores]
-    attack_runs: dict[tuple[str, str], TaskScores]
+    suite: str
+    user_runs: dict[str, TaskResults]
+    injection_runs: dict[str, TaskResults]
+    attack_runs: dict[tuple[str, str], TaskResults]
     utility_user_tasks: float = 0.0
     utility_injection_tasks: float = 0.0
     utility_with_attack: float = 0.0
@@ -58,10 +57,12 @@ class SuiteResults:
 
     def __init__(
         self,
-        user_runs: dict[str, TaskScores],
-        injection_runs: dict[str, TaskScores],
-        attack_runs: dict[tuple[str, str], TaskScores],
+        suite: str,
+        user_runs: dict[str, TaskResults],
+        injection_runs: dict[str, TaskResults],
+        attack_runs: dict[tuple[str, str], TaskResults],
     ) -> None:
+        self.suite = suite
         self.user_runs = user_runs
         self.injection_runs = injection_runs
         self.attack_runs = attack_runs
@@ -81,7 +82,7 @@ class SuiteResults:
         )
 
     def get_all_utility(
-        self, runs: Callable[["SuiteResults"], dict[Any, TaskScores]]
+        self, runs: Callable[["SuiteResults"], dict[Any, TaskResults]]
     ) -> dict[Any, bool]:
         return {name: task_results.utility for name, task_results in runs(self).items()}
 
@@ -96,10 +97,63 @@ class SuiteResults:
         all_results = list(results.values())
         return sum(all_results) / len(all_results) if all_results else 0.0
 
+    def save(self, log_dir: Path) -> None:
+        suite_folder = log_dir / self.suite
+        suite_folder.mkdir()
+
+        results_data = {
+            "suite": self.suite,
+            "utility_user_tasks": self.utility_user_tasks,
+            "utility_injection_tasks": self.utility_injection_tasks,
+            "utility_with_attack": self.utility_with_attack,
+            "security": self.security,
+            "count": self.count,
+        }
+        with (suite_folder / "results.json").open("w") as f:
+            json.dump(results_data, f, indent=2)
+
+        for user_task_id, task_result in self.user_runs.items():
+            task_result.save(suite_folder, f"user-{user_task_id}.json")
+
+        for injection_task_id, task_result in self.injection_runs.items():
+            task_result.save(suite_folder, f"injection-{injection_task_id}.json")
+
+        for (user_task_id, injection_task_id), task_result in self.attack_runs.items():
+            task_result.save(
+                suite_folder, f"attack-{user_task_id}-{injection_task_id}.json"
+            )
+
 
 @dataclass
 class BenchmarkResults:
     suite_results: dict[str, SuiteResults]
+    agent: str
+    timestamp: str
+    commit: str
+    suites: list[str]
+    user_tasks: list[str] | None = None
+    injection_tasks: list[str] | None = None
+
+    def test_count(self) -> int:
+        return sum([sr.count for sr in self.suite_results.values()])
+
+    def _serialize_task_list(self, tasks: list[str] | None) -> list[str] | str:
+        """Convert None to 'ALL_TESTS' sentinel for JSON serialization."""
+        return "ALL_TESTS" if tasks is None else tasks
+
+    def save(self, log_dir: Path) -> None:
+        results_data = dataclasses.asdict(self)
+        results_data.pop("suite_results")
+        results_data["test_count"] = self.test_count()
+        results_data["user_tasks"] = self._serialize_task_list(self.user_tasks)
+        results_data["injection_tasks"] = self._serialize_task_list(
+            self.injection_tasks
+        )
+        with log_dir.open(mode="w") as file:
+            json.dump(results_data, file, indent=2)
+
+        for suite_result in self.suite_results.values():
+            suite_result.save(log_dir)
 
 
 def run_task(
@@ -110,9 +164,7 @@ def run_task(
     attack: agentdojo.attacks.BaseAttack | None,
     logdir: Path | None,
     force_rerun: bool,
-    benchmark_version: str
-    | None = None,  # TODO: remove this through using own TraceLogger
-) -> TaskScores:
+) -> TaskResults:
     """Run a task. If both a user task and an injection task are specified, as
     well as an attack, the user task is carried out with the injection task
     injected in the environment through the attack.
@@ -160,11 +212,11 @@ def run_task(
         injection_task_to_run = suite.get_injection_task_by_id(injection_task_id)
         injections = attack.attack(user_task, injection_task_to_run)
 
-    if logdir is not None and agent_pipeline.name is not None:
+    if logdir is not None:
         try:
             task_result = load_task_results(
                 suite_name=suite.name,
-                user_task=task.ID,
+                user_task=user_task.ID if user_task else "none",
                 attack_name=attack_name,
                 injection_task=injection_task_id,
                 logdir=logdir,
@@ -186,18 +238,10 @@ def run_task(
                 f"Skipping task '{task.ID}' with no injections because it was"
                 " already run."
             )
-        return TaskScores(task_result.utility, task_result.security)
+        return task_result
 
-    with agentdojo.logging.TraceLogger(
-        delegate=agentdojo.logging.Logger.get(),
-        suite_name=suite.name,
-        user_task_id=task.ID,
-        injection_task_id=injection_task_id,
-        injections=injections,
-        attack_type=attack_name,
-        pipeline_name=agent_pipeline.name,
-        benchmark_version=benchmark_version,
-    ) as logger:
+    start = time.time()
+    with logging.CaptureLogger() as cap:
         try:
             utility, security = suite.run_task_with_pipeline(
                 agent_pipeline, task, injection_task=None, injections=injections
@@ -208,7 +252,7 @@ def run_task(
                 or e.param == "max_tokens"
                 or "reduce the length of the messages." in repr(e)
             ):
-                logger.log_error(
+                logging.log_error(
                     f"Skipping task {task.ID} due to context_length_exceeded: {e}"
                 )
                 utility = False
@@ -217,7 +261,7 @@ def run_task(
                 raise
         except agentdojo.benchmark.UnprocessableEntityError as e:
             if "max_new_tokens" in str(e):
-                logger.log_error(
+                logging.log_error(
                     f"Skipping task {task.ID} due to context_length_exceeded: {e}"
                 )
                 utility = False
@@ -226,7 +270,7 @@ def run_task(
                 raise
         except agentdojo.benchmark.ApiError as e:
             if "internal server error" in str(e):
-                logger.log_error(
+                logging.log_error(
                     f"Skipping task {task.ID} because of internal server error: {e}"
                 )
                 utility = False
@@ -234,15 +278,24 @@ def run_task(
             else:
                 raise
         except agentdojo.benchmark.ServerError as e:
-            logger.log_error(
+            logging.log_error(
                 f"Skipping task {task.ID} because of internal server error: {e}"
             )
             utility = False
             security = True
-        logger.set_contextarg("utility", utility)
-        logger.set_contextarg("security", security)
+        messages = cap.messages
 
-    return TaskScores(utility, security)
+    duration = time.time() - start
+    return TaskResults(
+        user_task_id=user_task.ID if user_task else "none",
+        injection_task_id=injection_task_id,
+        attack_type=attack_name,
+        injections=injections,
+        messages=messages,
+        utility=utility,
+        security=security,
+        duration=duration,
+    )
 
 
 def load_task_results(
@@ -252,50 +305,24 @@ def load_task_results(
     injection_task: str,
     logdir: Path,
 ) -> TaskResults:
-    path = logdir / suite_name / user_task / attack_name / f"{injection_task}.json"
+    path = logdir / suite_name
+
+    if user_task != "none" and injection_task == "none":
+        # Only user task was specified
+        path = path / f"user-{user_task}.json"
+
+    elif user_task == "none" and injection_task != "none":
+        # Only injection task was specified
+        path = path / f"injection-{injection_task}.json"
+
+    elif user_task != "none" and injection_task != "none":
+        # User task was run with an attack
+        path = path / f"attack-{user_task}-{injection_task}.json"
+
     with path.open() as f:
         res_dict = json.load(f)
 
     return TaskResults(**res_dict)
-
-
-def load_suite_results(
-    suite_name: str,
-    attack_name: str,
-    logdir: Path = Path("../.log"),
-    benchmark_version: str = "v1.2",
-) -> tuple[dict[tuple[str, str], TaskResults], dict[tuple[str, str], TaskResults]]:
-    suite = get_suite(benchmark_version, suite_name)
-    results_without_injections = {}
-    results_with_injections = {}
-
-    for user_task_id in suite.user_tasks:
-        results_without_injections[(user_task_id, None)] = load_task_results(
-            suite_name, user_task_id, "none", "none", logdir
-        )
-        if "dos" in attack_name:
-            injection_task_id = next(iter(suite.injection_tasks.keys()))
-            results_with_injections[(user_task_id, injection_task_id)] = (
-                load_task_results(
-                    suite_name,
-                    user_task_id,
-                    attack_name,
-                    injection_task_id,
-                    logdir,
-                )
-            )
-        elif attack_name != "none":
-            for injection_task_id in suite.injection_tasks:
-                results_with_injections[(user_task_id, injection_task_id)] = (
-                    load_task_results(
-                        suite_name,
-                        user_task_id,
-                        attack_name,
-                        injection_task_id,
-                        logdir,
-                    )
-                )
-    return results_without_injections, results_with_injections
 
 
 def _get_git_revision() -> str | None:
@@ -316,19 +343,13 @@ def _get_git_revision() -> str | None:
         return commit
 
 
-# TODO: benchmark level JSON file should only be created after
-def init_benchmark_dir(log_dir: Path) -> Path:
-    timestamp_folder = datetime.now(tz=UTC).strftime("%d%H%M%S")
-    timestamp_log = datetime.now().astimezone().isoformat()
+def init_benchmark_dir(log_dir: Path) -> tuple[Path, datetime]:
+    run_start = datetime.now(tz=UTC)
+    timestamp_folder = run_start.astimezone().strftime("Y-%m-%d_%H-%M-%S")
     bench_dir = log_dir / f"bench-{timestamp_folder}"
     bench_dir.mkdir(parents=True, exist_ok=True)
 
-    meta = {"commit": _get_git_revision(), "timestamp": timestamp_log}
-
-    with Path.open(bench_dir / "bench.json", "w") as f:
-        json.dump(meta, f, indent=4)
-
-    return bench_dir
+    return bench_dir, run_start
 
 
 def benchmark_suite(
@@ -338,8 +359,7 @@ def benchmark_suite(
     attack: agentdojo.attacks.BaseAttack | None = None,
     user_tasks: Sequence[str] | None = None,
     injection_tasks: Sequence[str] | None = None,
-    benchmark_version: str | None = None,
-    n_repeats: int = 1,
+    n_repeats: int = 1,  # TODO: use n_repeats
     force_rerun: bool = False,
 ) -> SuiteResults:
     """Benchmark a suite.
@@ -388,7 +408,6 @@ def benchmark_suite(
             attack=None,
             logdir=logdir,
             force_rerun=force_rerun,
-            benchmark_version=benchmark_version,
         )
         user_runs[user_task_id] = task_scores
 
@@ -401,7 +420,6 @@ def benchmark_suite(
             attack=None,
             logdir=logdir,
             force_rerun=force_rerun,
-            benchmark_version=benchmark_version,
         )
         injection_runs[injection_task_id] = task_scores
 
@@ -415,29 +433,40 @@ def benchmark_suite(
                 attack=attack,
                 logdir=logdir,
                 force_rerun=force_rerun,
-                benchmark_version=benchmark_version,
             )
             attack_runs[(user_task_id, injection_task_id)] = task_scores
 
     return SuiteResults(
-        user_runs=user_runs, injection_runs=injection_runs, attack_runs=attack_runs
+        suite=suite.name,
+        user_runs=user_runs,
+        injection_runs=injection_runs,
+        attack_runs=attack_runs,
     )
 
 
 def benchmark(
     agent_loop: agent.ADAgentLoop,
+    agent: str,
     log_dir: Path = Path(".log"),
     attack: str | None = None,
+    suites: list[str] | None = None,
     user_tasks: list[str] | None = None,
     injection_tasks: list[str] | None = None,
     suite_version: str = "v1.2",
     n_repeats: int = 1,
     force_rerun: bool = False,
 ) -> BenchmarkResults:
-    bench_dir = init_benchmark_dir(log_dir)
-    suites = agentdojo.task_suite.get_suites(suite_version)
+    bench_dir, timestamp = init_benchmark_dir(log_dir)
+    suites_to_run: dict[str, agentdojo.task_suite.TaskSuite] = (
+        agentdojo.task_suite.get_suites(suite_version)
+    )
+    if suites:
+        suites_to_run = {
+            suite: agentdojo.task_suite.get_suite(suite_version, suite)
+            for suite in suites
+        }
     suite_results = {}
-    for suite_name, suite in suites.items():
+    for suite_name, suite in suites_to_run.items():
         # if suite_name != "slack":
         #     continue
         logging.debug(f"Executing suite {suite_name}")
@@ -445,7 +474,7 @@ def benchmark(
         # This is an inconsistency in AgentDojo.
         # The benchmark requires the attribute `name` to be set,
         # but the `AgentPipeline` class doesn't have it.
-        agent_pipeline.__setattr__("name", "local_lamb")
+        agent_pipeline.name = "local_lamb"
         base_attack = None
         if attack is not None:
             base_attack = agentdojo.attacks.load_attack(attack, suite, agent_pipeline)
@@ -456,7 +485,6 @@ def benchmark(
             attack=base_attack,
             user_tasks=user_tasks,
             injection_tasks=injection_tasks,
-            benchmark_version=suite_version,
             n_repeats=n_repeats,
             force_rerun=force_rerun,
         )
@@ -466,4 +494,14 @@ def benchmark(
         else:
             print(f"Suite: {suite_name}\tUtility score: {results.utility_user_tasks}")
         suite_results[suite_name] = results
-    return BenchmarkResults(suite_results=suite_results)
+    benchmark_results = BenchmarkResults(
+        suite_results=suite_results,
+        agent=agent,
+        timestamp=timestamp.astimezone().isoformat(),
+        commit=_get_git_revision() or "none",
+        suites=list(suites_to_run.keys()),
+        user_tasks=user_tasks,
+        injection_tasks=injection_tasks,
+    )
+    benchmark_results.save(bench_dir)
+    return benchmark_results
