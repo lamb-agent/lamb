@@ -1,9 +1,9 @@
-import json
 import subprocess
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from json import dump, load
 from pathlib import Path
 from typing import Any, Self
 
@@ -16,6 +16,11 @@ from agentdojo.types import ChatMessage
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from lamb import agent, logging
+
+# TODO: log early
+# TODO: failsafe run_task calls
+# TODO: log model
+# TODO: try without naming pipeline
 
 
 class TaskResults(BaseModel):
@@ -39,7 +44,7 @@ class TaskResults(BaseModel):
     def save(self, log_dir: Path, filename: str) -> None:
         file_path = log_dir / filename
         with file_path.open("w") as f:
-            json.dump(self.model_dump(mode="json"), f, indent=2)
+            dump(self.model_dump(mode="json"), f, indent=2)
 
 
 class SuiteResults:
@@ -108,7 +113,7 @@ class SuiteResults:
             "count": self.count,
         }
         with (suite_folder / "results.json").open("w") as f:
-            json.dump(results_data, f, indent=2)
+            dump(results_data, f, indent=2)
 
         for user_task_id, task_result in self.user_runs.items():
             task_result.save(suite_folder, f"user-{user_task_id}.json")
@@ -149,7 +154,7 @@ class BenchmarkResults:
         )
         file_path = log_dir / "bench.json"
         with file_path.open(mode="w") as file:
-            json.dump(results_data, file, indent=2)
+            dump(results_data, file, indent=2)
 
         for suite_result in self.suite_results.values():
             suite_result.save(log_dir)
@@ -303,25 +308,35 @@ def load_task_results(
     attack_name: str,
     injection_task: str,
     logdir: Path,
-) -> TaskResults:
-    path = logdir / suite_name
+) -> TaskResults | None:
+    file_path = Path(suite_name)
+    res_dict = None
 
     if user_task != "none" and injection_task == "none":
         # Only user task was specified
-        path = path / f"user-{user_task}.json"
+        file_path = file_path / f"user-{user_task}.json"
 
     elif user_task == "none" and injection_task != "none":
         # Only injection task was specified
-        path = path / f"injection-{injection_task}.json"
+        file_path = file_path / f"injection-{injection_task}.json"
 
     elif user_task != "none" and injection_task != "none":
         # User task was run with an attack
-        path = path / f"attack-{user_task}-{injection_task}.json"
+        file_path = file_path / f"attack-{user_task}-{injection_task}.json"
 
-    with path.open() as f:
-        res_dict = json.load(f)
+    base_path = logdir.parent
 
-    return TaskResults(**res_dict)
+    dirs = [d.name for d in base_path.iterdir() if Path.is_dir(d)]
+    dirs.sort(reverse=True)
+
+    for folder in dirs:
+        file = base_path / folder / file_path
+        if Path.exists(file):
+            with file.open() as f:
+                res_dict = load(f)
+            break
+
+    return TaskResults(**res_dict) if res_dict else None
 
 
 def _get_git_revision() -> str | None:
