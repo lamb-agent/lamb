@@ -1,9 +1,8 @@
-import dataclasses
 import json
 import subprocess
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Self
@@ -13,7 +12,6 @@ import agentdojo.attacks
 import agentdojo.base_tasks
 import agentdojo.benchmark
 import agentdojo.task_suite
-from agentdojo.task_suite.load_suites import get_suite
 from agentdojo.types import ChatMessage
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -142,14 +140,15 @@ class BenchmarkResults:
         return "ALL_TESTS" if tasks is None else tasks
 
     def save(self, log_dir: Path) -> None:
-        results_data = dataclasses.asdict(self)
+        results_data = asdict(self)
         results_data.pop("suite_results")
         results_data["test_count"] = self.test_count()
         results_data["user_tasks"] = self._serialize_task_list(self.user_tasks)
         results_data["injection_tasks"] = self._serialize_task_list(
             self.injection_tasks
         )
-        with log_dir.open(mode="w") as file:
+        file_path = log_dir / "bench.json"
+        with file_path.open(mode="w") as file:
             json.dump(results_data, file, indent=2)
 
         for suite_result in self.suite_results.values():
@@ -345,7 +344,7 @@ def _get_git_revision() -> str | None:
 
 def init_benchmark_dir(log_dir: Path) -> tuple[Path, datetime]:
     run_start = datetime.now(tz=UTC)
-    timestamp_folder = run_start.astimezone().strftime("Y-%m-%d_%H-%M-%S")
+    timestamp_folder = run_start.astimezone().strftime("%Y-%m-%d_%H-%M-%S")
     bench_dir = log_dir / f"bench-{timestamp_folder}"
     bench_dir.mkdir(parents=True, exist_ok=True)
 
