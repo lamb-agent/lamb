@@ -17,9 +17,6 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from lamb import agent, logging
 
-# TODO: log early
-# TODO: failsafe run_task calls
-# TODO: log model
 # TODO: try without naming pipeline
 
 
@@ -42,6 +39,7 @@ class TaskResults(BaseModel):
         return self
 
     def save(self, log_dir: Path, filename: str) -> None:
+        log_dir.mkdir(exist_ok=True)
         file_path = log_dir / filename
         with file_path.open("w") as f:
             dump(self.model_dump(mode="json"), f, indent=2)
@@ -102,7 +100,7 @@ class SuiteResults:
 
     def save(self, log_dir: Path) -> None:
         suite_folder = log_dir / self.suite
-        suite_folder.mkdir()
+        suite_folder.mkdir(exist_ok=True)
 
         results_data = {
             "suite": self.suite,
@@ -115,21 +113,11 @@ class SuiteResults:
         with (suite_folder / "results.json").open("w") as f:
             dump(results_data, f, indent=2)
 
-        for user_task_id, task_result in self.user_runs.items():
-            task_result.save(suite_folder, f"user-{user_task_id}.json")
-
-        for injection_task_id, task_result in self.injection_runs.items():
-            task_result.save(suite_folder, f"injection-{injection_task_id}.json")
-
-        for (user_task_id, injection_task_id), task_result in self.attack_runs.items():
-            task_result.save(
-                suite_folder, f"attack-{user_task_id}-{injection_task_id}.json"
-            )
-
 
 @dataclass
 class BenchmarkResults:
     suite_results: dict[str, SuiteResults]
+    model: str
     agent: str
     timestamp: str
     commit: str
@@ -155,9 +143,6 @@ class BenchmarkResults:
         file_path = log_dir / "bench.json"
         with file_path.open(mode="w") as file:
             dump(results_data, file, indent=2)
-
-        for suite_result in self.suite_results.values():
-            suite_result.save(log_dir)
 
 
 def run_task(
@@ -369,7 +354,7 @@ def init_benchmark_dir(log_dir: Path) -> tuple[Path, datetime]:
 def benchmark_suite(
     agent_pipeline: pipeline.BasePipelineElement,
     suite: agentdojo.task_suite.TaskSuite,
-    logdir: Path | None,
+    log_dir: Path | None,
     attack: agentdojo.attacks.BaseAttack | None = None,
     user_tasks: Sequence[str] | None = None,
     injection_tasks: Sequence[str] | None = None,
@@ -401,6 +386,7 @@ def benchmark_suite(
         user_tasks_to_run = {
             user_task_id: suite.get_user_task_by_id(user_task_id)
             for user_task_id in user_tasks
+            if user_task_id in suite.user_tasks
         }
     else:
         user_tasks_to_run = suite.user_tasks
@@ -409,46 +395,65 @@ def benchmark_suite(
         injection_tasks_to_run = {
             injection_task_id: suite.get_injection_task_by_id(injection_task_id)
             for injection_task_id in injection_tasks
+            if injection_task_id in suite.injection_tasks
         }
     else:
         injection_tasks_to_run = suite.injection_tasks
 
-    for user_task_id, user_task in user_tasks_to_run.items():
-        task_scores = run_task(
-            suite=suite,
-            agent_pipeline=agent_pipeline,
-            user_task=user_task,
-            injection_task=None,
-            attack=None,
-            logdir=logdir,
-            force_rerun=force_rerun,
-        )
-        user_runs[user_task_id] = task_scores
-
-    for injection_task_id, injection_task in injection_tasks_to_run.items():
-        task_scores = run_task(
-            suite=suite,
-            agent_pipeline=agent_pipeline,
-            user_task=None,
-            injection_task=injection_task,
-            attack=None,
-            logdir=logdir,
-            force_rerun=force_rerun,
-        )
-        injection_runs[injection_task_id] = task_scores
-
-    for user_task_id, user_task in user_tasks_to_run.items():
-        for injection_task_id, injection_task in injection_tasks_to_run.items():
-            task_scores = run_task(
+    def run_and_save_task(
+        user_task: agentdojo.task_suite.BaseUserTask | None,
+        injection_task: agentdojo.task_suite.BaseInjectionTask | None,
+        attack: agentdojo.attacks.BaseAttack | None,
+        file_name: str,
+    ) -> TaskResults | None:
+        task_results = None
+        try:
+            task_results = run_task(
                 suite=suite,
                 agent_pipeline=agent_pipeline,
                 user_task=user_task,
                 injection_task=injection_task,
                 attack=attack,
-                logdir=logdir,
+                logdir=log_dir / suite.name if log_dir else None,
                 force_rerun=force_rerun,
             )
-            attack_runs[(user_task_id, injection_task_id)] = task_scores
+            if log_dir:
+                task_results.save(log_dir=log_dir / suite.name, filename=file_name)
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:  # noqa: BLE001
+            logging.exception(str(e))
+            return None
+        else:
+            return task_results
+
+    for user_task_id, user_task in user_tasks_to_run.items():
+        task_results = run_and_save_task(
+            user_task=user_task,
+            injection_task=None,
+            attack=None,
+            file_name=f"user-{user_task_id}.json",
+        )
+        user_runs[user_task_id] = task_results
+
+    for injection_task_id, injection_task in injection_tasks_to_run.items():
+        task_results = run_and_save_task(
+            user_task=None,
+            injection_task=injection_task,
+            attack=None,
+            file_name=f"injection-{injection_task_id}.json",
+        )
+        injection_runs[injection_task_id] = task_results
+
+    for user_task_id, user_task in user_tasks_to_run.items():
+        for injection_task_id, injection_task in injection_tasks_to_run.items():
+            task_results = run_and_save_task(
+                user_task=user_task,
+                injection_task=injection_task,
+                attack=attack,
+                file_name=f"attack-{user_task_id}-{injection_task_id}.json",
+            )
+            attack_runs[(user_task_id, injection_task_id)] = task_results
 
     return SuiteResults(
         suite=suite.name,
@@ -461,6 +466,7 @@ def benchmark_suite(
 def benchmark(
     agent_loop: agent.ADAgentLoop,
     agent: str,
+    model: str,
     log_dir: Path = Path(".log"),
     attack: str | None = None,
     suites: list[str] | None = None,
@@ -470,6 +476,13 @@ def benchmark(
     n_repeats: int = 1,
     force_rerun: bool = False,
 ) -> BenchmarkResults:
+    match (attack, user_tasks, injection_tasks):
+        # TODO: change this, None, list(), list() also make sense
+        case (str(), list(), list()) | (None, list(), None) | (None, None, list()):
+            pass
+        case _:
+            raise ValueError("Invalid arguments")
+
     bench_dir, timestamp = init_benchmark_dir(log_dir)
     suites_to_run: dict[str, agentdojo.task_suite.TaskSuite] = (
         agentdojo.task_suite.get_suites(suite_version)
@@ -495,13 +508,14 @@ def benchmark(
         results: SuiteResults = benchmark_suite(
             agent_pipeline=agent_pipeline,
             suite=suite,
-            logdir=bench_dir,
+            log_dir=bench_dir,
             attack=base_attack,
             user_tasks=user_tasks,
             injection_tasks=injection_tasks,
             n_repeats=n_repeats,
             force_rerun=force_rerun,
         )
+        results.save(log_dir=bench_dir)
         if base_attack is not None:
             print(f"Suite: {suite_name}\tUtility score: {results.utility_with_attack}")
             print(f"\t\t\tSecurity score: {results.security}")
@@ -511,6 +525,7 @@ def benchmark(
     benchmark_results = BenchmarkResults(
         suite_results=suite_results,
         agent=agent,
+        model=model,
         timestamp=timestamp.astimezone().isoformat(),
         commit=_get_git_revision() or "none",
         suites=list(suites_to_run.keys()),

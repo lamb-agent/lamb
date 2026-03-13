@@ -15,12 +15,13 @@ def main() -> None:
         agent_loop=agent.ADAgentLoop(
             lambda runtime, env: Agent.lamb_no_ifc(model, runtime, env)
         ),
+        model=model.model,
         agent="lamb-no-ifc",
         log_dir=log_dir,
-        attack="tool_knowledge",
-        suites=None,
-        user_tasks=["user_task_0", "user_task_1", "user_task_2"],
-        injection_tasks=["injection_task_0", "injection_task_1", "injection_task_2"],
+        attack=None,
+        suites=["slack"],
+        user_tasks=[],
+        injection_tasks=["injection_task_0", "injection_task_1"],
         suite_version="v1.2",
         n_repeats=1,
         force_rerun=False,
