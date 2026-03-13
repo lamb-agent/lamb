@@ -17,8 +17,6 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from lamb import agent, logging
 
-# TODO: try without naming pipeline
-
 
 class TaskResults(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -206,7 +204,6 @@ def run_task(
             task_result = load_task_results(
                 suite_name=suite.name,
                 user_task=user_task.ID if user_task else "none",
-                attack_name=attack_name,
                 injection_task=injection_task_id,
                 logdir=logdir,
             )
@@ -290,7 +287,6 @@ def run_task(
 def load_task_results(
     suite_name: str,
     user_task: str,
-    attack_name: str,
     injection_task: str,
     logdir: Path,
 ) -> TaskResults | None:
@@ -476,13 +472,6 @@ def benchmark(
     n_repeats: int = 1,
     force_rerun: bool = False,
 ) -> BenchmarkResults:
-    match (attack, user_tasks, injection_tasks):
-        # TODO: change this, None, list(), list() also make sense
-        case (str(), list(), list()) | (None, list(), None) | (None, None, list()):
-            pass
-        case _:
-            raise ValueError("Invalid arguments")
-
     bench_dir, timestamp = init_benchmark_dir(log_dir)
     suites_to_run: dict[str, agentdojo.task_suite.TaskSuite] = (
         agentdojo.task_suite.get_suites(suite_version)
@@ -494,14 +483,8 @@ def benchmark(
         }
     suite_results = {}
     for suite_name, suite in suites_to_run.items():
-        # if suite_name != "slack":
-        #     continue
         logging.debug(f"Executing suite {suite_name}")
         agent_pipeline = pipeline.AgentPipeline([agent_loop])
-        # This is an inconsistency in AgentDojo.
-        # The benchmark requires the attribute `name` to be set,
-        # but the `AgentPipeline` class doesn't have it.
-        agent_pipeline.name = "local_lamb"
         base_attack = None
         if attack is not None:
             base_attack = agentdojo.attacks.load_attack(attack, suite, agent_pipeline)
@@ -517,7 +500,12 @@ def benchmark(
         )
         results.save(log_dir=bench_dir)
         if base_attack is not None:
-            print(f"Suite: {suite_name}\tUtility score: {results.utility_with_attack}")
+            print(
+                f"Suite: {suite_name}\tUtility score with attack: "
+                f"{results.utility_with_attack}"
+            )
+            print(f"\t\t\tUtility (user tasks): {results.utility_user_tasks}")
+            print(f"\t\t\tUtility (injection tasks): {results.utility_injection_tasks}")
             print(f"\t\t\tSecurity score: {results.security}")
         else:
             print(f"Suite: {suite_name}\tUtility score: {results.utility_user_tasks}")
