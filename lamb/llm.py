@@ -1,6 +1,6 @@
 import logging
-import sys
 import time
+import typing
 from dataclasses import dataclass
 from enum import Enum
 
@@ -23,9 +23,17 @@ class OllamaModel(Enum):
     MISTRAL_LARGE_123B = "mistral-large:123b"
     GRANITE4 = "granite4:3b"
 
+class Llm(typing.Protocol):
+    def prompt(
+        self,
+        runtime: Runtime,
+        messages: list[ChatMessage],
+        response_format: ResponseFormat,
+    ) -> ChatMessage: ...
+
 
 @dataclass
-class Llm:
+class LiveLlm(Llm):
     """A stateless LLM."""
 
     model: str
@@ -58,8 +66,8 @@ class Llm:
     def ollama_openai(
         model: OllamaModel,
         reasoning: openai_types.ChatCompletionReasoningEffort = None,
-    ) -> "Llm":
-        return Llm(
+    ) -> Llm:
+        return LiveLlm(
             model.value,
             "http://localhost:11434/v1",
             api_key="ollama",
@@ -70,8 +78,8 @@ class Llm:
     def ollama_chat(
         model: OllamaModel,
         reasoning: openai_types.ChatCompletionReasoningEffort = None,
-    ) -> "Llm":
-        return Llm(
+    ) -> Llm:
+        return LiveLlm(
             model.value,
             "http://localhost:11434",
             api_key="ollama",
