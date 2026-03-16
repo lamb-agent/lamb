@@ -37,7 +37,7 @@ class Agent:
     system_prompt: str
     model: lamb.llm.Llm
     identity: lamb.types.Identity
-    max_iters: int = 25
+    max_iters: int
 
     def __init__(
         self,
@@ -46,7 +46,7 @@ class Agent:
         identity: lamb.types.Identity,
         system_prompt: str,
         make_core: Callable[[], AgentCore],
-        max_iters: int = 25,
+        max_iters: int = 10,
     ) -> None:
         self.name = name
         self.system_prompt = system_prompt
@@ -155,6 +155,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.empty(),
                 formatter=lamb.formatter.VariableFormatter.none(),
             ),
+            max_iters=2, # we know it can't be more, because no tools are available
         )
 
     @staticmethod
@@ -262,6 +263,7 @@ class Agent:
             identity=lamb.types.Identity.BOUNDED,
             system_prompt=system_prompt,
             make_core=make_core,
+            max_iters=5, # usually nothing useful comes of it, if it takes longer
         )
 
     @staticmethod
