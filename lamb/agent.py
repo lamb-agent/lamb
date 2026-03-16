@@ -264,7 +264,7 @@ class Agent:
             identity=lamb.types.Identity.BOUNDED,
             system_prompt=system_prompt,
             make_core=make_core,
-            max_iters=5,  # usually nothing useful comes of it, if it takes longer
+            max_iters=7,  # usually nothing useful comes of it, if it takes longer
         )
 
     @staticmethod
