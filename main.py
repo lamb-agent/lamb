@@ -10,7 +10,7 @@ from lamb.agent import Agent
 
 def main() -> None:
     log_dir = Path(".log")
-    model = llm.Llm.ollama_openai(llm.OllamaModel.GPT_OSS_120B)
+    model = llm.LiveLlm.ollama_openai(llm.OllamaModel.GPT_OSS_120B)
     bench.benchmark(
         agent_loop=agent.ADAgentLoop(
             lambda runtime, env: Agent.lamb_no_ifc(model, runtime, env)

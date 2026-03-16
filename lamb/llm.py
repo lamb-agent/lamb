@@ -23,6 +23,7 @@ class OllamaModel(Enum):
     MISTRAL_LARGE_123B = "mistral-large:123b"
     GRANITE4 = "granite4:3b"
 
+
 class Llm(typing.Protocol):
     def prompt(
         self,
@@ -85,6 +86,21 @@ class LiveLlm(Llm):
             api_key="ollama",
             reasoning=reasoning,
         )
+
+
+class MockLlm(Llm):
+    history: typing.Iterator[ChatMessage]
+
+    def __init__(self, history: typing.Iterable[ChatMessage]) -> None:
+        self.history = iter(history)
+
+    def prompt(
+        self,
+        runtime: Runtime,  # noqa: ARG002
+        messages: list[ChatMessage],  # noqa: ARG002
+        response_format: ResponseFormat,  # noqa: ARG002
+    ) -> ChatMessage:
+        return self.history.__next__()
 
 
 @dataclass
