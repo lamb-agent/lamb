@@ -3,8 +3,8 @@ from collections.abc import Sequence
 
 import rich.logging
 from agentdojo.functions_runtime import FunctionCall
-from agentdojo.types import ChatMessage
 from agentdojo.logging import Logger
+from agentdojo.types import ChatMessage
 
 from lamb import types
 

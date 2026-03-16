@@ -1,6 +1,6 @@
 import subprocess
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from json import dump, load
@@ -32,7 +32,7 @@ class TaskResults(BaseModel):
 
     @model_validator(mode="after")
     def check_messages(self) -> Self:
-        if len(self.messages) < 2:
+        if self.error is None and len(self.messages) < 2:
             raise ValueError("TaskResults must have at least two messages.")
         return self
 
@@ -80,10 +80,9 @@ class SuiteResults:
             len(self.user_runs) + len(self.injection_runs) + len(self.attack_runs)
         )
 
-    def get_all_utility(
-        self, runs: Callable[["SuiteResults"], dict[Any, TaskResults]]
-    ) -> dict[Any, bool]:
-        return {name: task_results.utility for name, task_results in runs(self).items()}
+    @staticmethod
+    def get_all_utility[T](results: dict[T, TaskResults]) -> dict[T, bool]:
+        return {name: task_results.utility for name, task_results in results.items()}
 
     def get_all_security(self) -> dict[Any, bool]:
         return {
@@ -374,9 +373,9 @@ def benchmark_suite(
             files or ignored and run from the start.
 
     """
-    user_runs = {}
-    injection_runs = {}
-    attack_runs = {}
+    user_runs: dict[str, TaskResults] = {}
+    injection_runs: dict[str, TaskResults] = {}
+    attack_runs: dict[tuple[str, str], TaskResults] = {}
 
     if user_tasks is not None:
         user_tasks_to_run = {
@@ -401,7 +400,7 @@ def benchmark_suite(
         injection_task: agentdojo.task_suite.BaseInjectionTask | None,
         attack: agentdojo.attacks.BaseAttack | None,
         file_name: str,
-    ) -> TaskResults | None:
+    ) -> TaskResults:
         task_results = None
         try:
             task_results = run_task(
@@ -419,7 +418,17 @@ def benchmark_suite(
             raise
         except Exception as e:  # noqa: BLE001
             logging.exception(str(e))
-            return None
+            return TaskResults(
+                user_task_id=user_task.ID if user_task else None,
+                injection_task_id=injection_task.ID if injection_task else None,
+                attack_type=attack.name if attack else None,
+                injections=None,
+                messages=[],
+                utility=False,
+                security=False,
+                duration=0.0,
+                error=str(e),
+            )
         else:
             return task_results
 
