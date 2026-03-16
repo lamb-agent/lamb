@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
 import openai
-from agentdojo.types import ChatMessage
+from agentdojo import types as ad
 from openai.types.chat.completion_create_params import ResponseFormat
 
 import lamb.controller
@@ -63,7 +63,7 @@ class Agent:
         tool_llm = lamb.llm.ToolLlm(llm=self.model, runtime=core.runtime)
         executor = lamb.tool_exec.ToolExec(core.runtime, core.formatter)
 
-        def call_llm(messages: list[ChatMessage]) -> ChatMessage:
+        def call_llm(messages: list[lamb.types.ChatMessage]) -> lamb.types.ChatMessage:
             try:
                 return tool_llm.prompt(messages, response_format)
             except openai.InternalServerError:
@@ -71,7 +71,9 @@ class Agent:
                     "The model failed to provide a correctly formatted tool call."
                 )
 
-        def call_tools(calls: list[rt.FunctionCall]) -> list[ChatMessage]:
+        def call_tools(
+            calls: list[lamb.types.FunctionCall],
+        ) -> list[lamb.types.ChatMessage]:
             return executor.exec(calls)
 
         return lamb.controller.Controller(
@@ -85,7 +87,7 @@ class Agent:
         self,
         user_prompt: str,
         response_format: ResponseFormat = lamb.types.TEXT_FORMAT,
-    ) -> tuple[list[ChatMessage], AgentCore]:
+    ) -> tuple[list[lamb.types.ChatMessage], AgentCore]:
         """Prompt the agent with a user prompt.
 
         Returns the resulting chat history and the ejected core.
@@ -105,7 +107,7 @@ class Agent:
         self,
         user_prompt: str,
         response_format: ResponseFormat = lamb.types.TEXT_FORMAT,
-    ) -> tuple[list[ChatMessage], lamb.ifc.IFCLabel]:
+    ) -> tuple[list[lamb.types.ChatMessage], lamb.ifc.IFCLabel]:
         """Prompt the agent with a user prompt.
 
         Returns the resulting chat history and the ejected core.
@@ -121,8 +123,7 @@ class Agent:
             response = response.replace(var, val)
 
         last_message = history[-1]
-        assert last_message["content"] is not None
-        last_message["content"][0]["content"] = response
+        last_message.content = response
         return history, label
 
     @staticmethod
@@ -155,7 +156,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.empty(),
                 formatter=lamb.formatter.VariableFormatter.none(),
             ),
-            max_iters=2, # we know it can't be more, because no tools are available
+            max_iters=2,  # we know it can't be more, because no tools are available
         )
 
     @staticmethod
@@ -192,7 +193,7 @@ class Agent:
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
     ) -> "Agent":
-        from cores.dual_ifc import make_core  # noqa: PLC0415
+        from lamb.cores.dual_ifc import make_core  # noqa: PLC0415
 
         return Agent(
             name="dual-ifc-privileged",
@@ -215,7 +216,7 @@ class Agent:
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
     ) -> "Agent":
-        from cores.dual_ifc import make_core  # noqa: PLC0415
+        from lamb.cores.dual_ifc import make_core  # noqa: PLC0415
 
         return Agent(
             name="dual-ifc-privileged",
@@ -263,7 +264,7 @@ class Agent:
             identity=lamb.types.Identity.BOUNDED,
             system_prompt=system_prompt,
             make_core=make_core,
-            max_iters=5, # usually nothing useful comes of it, if it takes longer
+            max_iters=5,  # usually nothing useful comes of it, if it takes longer
         )
 
     @staticmethod
@@ -350,18 +351,18 @@ class ADAgentLoop(pipeline.BasePipelineElement):
         query: str,
         runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment = rt.EmptyEnv(),  # noqa: B008
-        messages: Sequence[ChatMessage] = [],
+        messages: Sequence[ad.ChatMessage] = [],
         extra_args: dict = {},  # we ignore extra_args # noqa: B006
     ) -> tuple[
         str,
         rt.FunctionsRuntime,
         rt.TaskEnvironment,
-        Sequence[ChatMessage],
+        Sequence[ad.ChatMessage],
         dict,
     ]:
         agent = self.agent_fn(runtime, env)
         history, _ = agent.prompt(query)
-        messages = [*messages, *history]
+        messages = [*messages, *(lamb.types.message_to_ad(msg) for msg in history)]
         return (
             query,
             runtime,

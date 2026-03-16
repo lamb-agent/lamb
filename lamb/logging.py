@@ -1,10 +1,9 @@
 import logging
+import typing
 from collections.abc import Sequence
 
 import rich.logging
-from agentdojo.functions_runtime import FunctionCall
 from agentdojo.logging import Logger
-from agentdojo.types import ChatMessage
 
 from lamb import types
 
@@ -12,7 +11,7 @@ from lamb import types
 class CaptureLogger(Logger):
     """A simple logger that captures the `log(messages, ...)` call
     into an in-memory list so that it can be serialized after
-     unning a test.
+     running a test.
     """
 
     def __init__(self) -> None:
@@ -22,7 +21,7 @@ class CaptureLogger(Logger):
     def log_error(self, error: str) -> None:
         self.error = error
 
-    def log(self, messages: list[ChatMessage]) -> None:
+    def log(self, messages: list[types.ChatMessage]) -> None:
         self.messages = messages
 
 
@@ -57,40 +56,39 @@ def log_error(message: str) -> None:
     logger.error(message)
 
 
-def log_message(identity: types.Identity, message: ChatMessage) -> None:
-    role = types.Role(message["role"])
+def log_message(identity: types.Identity, message: types.ChatMessage) -> None:
     match logger.level:
         case logging.DEBUG:
             # log entire message instance
-            logger.debug(format_chat_message(identity, role, f"{message}"))
+            logger.debug(format_chat_message(identity, message.role, f"{message}"))
         case _:
             log: str
-            match message["role"]:
-                case "assistant":
-                    content = (message["content"] or [{"content": ""}])[0]["content"]
-                    tool_calls = [
-                        format_tool_call(call) for call in (message["tool_calls"] or [])
-                    ]
+            match message:
+                case types.AssistantMessage():
+                    content = message.content
+                    tool_calls = [format_tool_call(call) for call in message.tool_calls]
                     if len(tool_calls) > 0:
-                        if content != "":
-                            content += "\n\t"
+                        if message.content != "":
+                            message.content += "\n\t"
                         content += "\n".join(tool_calls)
-                    log = format_chat_message(identity, role, content)
-                case "tool":
-                    content = message["content"][0]["content"]
-                    if message["error"]:
+                    log = format_chat_message(identity, message.role, content)
+                case types.ToolMessage():
+                    content = message.content
+                    if message.error:
                         if content != "":
                             content += "\n\t"
-                        content += message["error"]
-                    log = format_chat_message(identity, role, content)
+                        content += message.error
+                    log = format_chat_message(identity, message.role, content)
+                case types.UserMessage():
+                    log = format_chat_message(identity, message.role, message.content)
                 case _:
-                    log = format_chat_message(
-                        identity, role, message["content"][0]["content"]
-                    )
+                    typing.assert_never(message)
             logger.info(log)
 
 
-def log_messages(identity: types.Identity, messages: Sequence[ChatMessage]) -> None:
+def log_messages(
+    identity: types.Identity, messages: Sequence[types.ChatMessage]
+) -> None:
     for message in messages:
         log_message(identity, message)
 
@@ -109,22 +107,21 @@ def format_chat_message(identity: types.Identity, role: types.Role, text: str) -
     role_symbol: str
     role_colour: str
     match role:
-        case types.Role.USER:
+        case "user":
             role_symbol = ":bust_in_silhouette:"
             role_colour = "green"
-        case types.Role.TOOL:
+        case "tool":
             role_symbol = ":wrench:"
             role_colour = "orange"
-        case types.Role.ASSISTANT:
+        case "assistant":
             role_symbol = ":robot_face:"
             role_colour = "cyan"
-        case types.Role.SYSTEM:
-            role_symbol = ":book:"
-            role_colour = "blue"
+        case _:
+            typing.assert_never(role)
     return f"{identity_symbol}{role_symbol} [{role_colour}]{text}[/{role_colour}]"
 
 
-def format_tool_call(call: FunctionCall) -> str:
+def format_tool_call(call: types.FunctionCall) -> str:
     args = [f"{name}={value}" for name, value in call.args.items()]
     arg_string = ""
     if len(args) > 0:

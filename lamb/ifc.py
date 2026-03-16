@@ -1,3 +1,4 @@
+import typing
 from collections.abc import Callable
 from enum import Enum
 from functools import reduce
@@ -196,7 +197,7 @@ class IFCChecker:
                 )
         return total_source
 
-    def find_vars(self, arg: rt.FunctionCallArgTypes) -> set[str]:
+    def find_vars(self, arg: types.FunctionCallArgTypes) -> set[str]:
         """Find a subset of variables from the given set of variables
         that is present in the given arg.
         """
@@ -209,18 +210,22 @@ class IFCChecker:
                 return set()
             case str():
                 return extract_vars(arg)
-            case list():
-                return reduce(set.union, (self.find_vars(item) for item in arg))
-            case dict():
+            case list() if types.is_arg_list(arg):
+                return reduce(set.union, (self.find_vars(item) for item in arg), set())
+            case dict() if types.is_arg_dict(arg):
                 return reduce(
-                    set.union, (self.find_vars(item) for item in arg.values())
+                    set.union, (self.find_vars(item) for item in arg.values()), set()
                 )
-            case rt.FunctionCall():
+            case types.FunctionCall():
                 return reduce(
-                    set.union, (self.find_vars(item) for item in arg.args.values())
+                    set.union,
+                    (self.find_vars(item) for item in arg.args.values()),
+                    set(),
                 )
             case _:
-                assert_never(arg)
+                assert_never(
+                    typing.cast("typing.Never", arg)
+                )  # static code analysis can't compute this
 
     def response_label(self, response: str) -> IFCLabel:
         variables = self.find_vars(response)

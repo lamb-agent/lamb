@@ -1,7 +1,5 @@
-import sys
+import typing
 from dataclasses import dataclass
-
-from agentdojo.types import ChatMessage
 
 from lamb import ifc, logging, types
 
@@ -13,7 +11,7 @@ class Controller:
     identity: types.Identity
     max_iters: int = 10
 
-    def loop(self, messages: list[ChatMessage]) -> list[ChatMessage]:
+    def loop(self, messages: list[types.ChatMessage]) -> list[types.ChatMessage]:
         # Prevent infinite loops
         if self.max_iters <= 0:
             failure_message = types.make_assistant_prompt(
@@ -32,11 +30,11 @@ class Controller:
         logging.log_message(self.identity, last_message)
         match last_message:
             # Initial user prompt
-            case {"role": "user"}:
+            case types.UserMessage():
                 next_message = self.call_llm(messages)
                 return self.loop([*messages, next_message])
             # evaluate tool calls
-            case {"role": "assistant", "tool_calls": calls} if (
+            case types.AssistantMessage(tool_calls=calls) if (
                 calls is not None and len(calls) > 0
             ):
                 try:
@@ -53,8 +51,9 @@ class Controller:
                 next_message = self.call_llm(appended_messages)
                 return self.loop([*appended_messages, next_message])
             # assistant finished without calling tools
-            case {"role": "assistant"}:
+            case types.AssistantMessage():
                 return messages
+            case types.ToolMessage():
+                raise TypeError("ToolMessage in controller")
             case _:
-                logging.exception(f"Illegal message role: {last_message['role']}")
-                sys.exit(1)
+                typing.assert_never(last_message)

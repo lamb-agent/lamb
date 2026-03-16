@@ -126,7 +126,7 @@ def check_email(
         default=ifc.Confidentiality.HIGH.value,
     )
     all_recipients = [
-        rec for recps in [recipients, cc, bcc] for rec in recps if recps is not None
+        rec for recps in [recipients, cc or [], bcc or []] for rec in recps
     ]
     domain_conf = check_domain(all_recipients, HIGH_CONF_DOMAINS).value
     return ifc.Confidentiality(min(file_reader_confs, domain_conf))
@@ -228,7 +228,7 @@ class ADLabeler(ifc.Labeler):
             case fn if fn in tool_categories.LOW_CONF_SINK:
                 conf = ifc.Confidentiality.LOW
             case fn if fn in tool_categories.ARG_CONF_SINK:
-                conf = ARG_CONF_EVAL[fn](**all_args)
+                conf = ARG_CONF_EVAL[fn](**all_args) # type: ignore
             case _:
                 raise ValueError("Tool is not labeled with a sink type")
         return ifc.IFCLabel(integ, conf)

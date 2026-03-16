@@ -6,10 +6,10 @@ from enum import Enum
 
 import openai
 import openai.types.chat as openai_types
-from agentdojo.types import ChatMessage
 from openai.types.chat.completion_create_params import ResponseFormat
 
 import lamb.llm_wrapper
+from lamb import types
 from lamb.runtime import Runtime
 
 
@@ -28,9 +28,9 @@ class Llm(typing.Protocol):
     def prompt(
         self,
         runtime: Runtime,
-        messages: list[ChatMessage],
+        messages: list[types.ChatMessage],
         response_format: ResponseFormat,
-    ) -> ChatMessage: ...
+    ) -> types.ChatMessage: ...
 
 
 @dataclass
@@ -45,9 +45,9 @@ class LiveLlm(Llm):
     def prompt(
         self,
         runtime: Runtime,
-        messages: list[ChatMessage],
+        messages: list[types.ChatMessage],
         response_format: ResponseFormat,
-    ) -> ChatMessage:
+    ) -> types.ChatMessage:
         try:
             return lamb.llm_wrapper.prompt(
                 model=self.model,
@@ -67,7 +67,7 @@ class LiveLlm(Llm):
     def ollama_openai(
         model: OllamaModel,
         reasoning: openai_types.ChatCompletionReasoningEffort = None,
-    ) -> Llm:
+    ) -> "LiveLlm":
         return LiveLlm(
             model.value,
             "http://localhost:11434/v1",
@@ -79,7 +79,7 @@ class LiveLlm(Llm):
     def ollama_chat(
         model: OllamaModel,
         reasoning: openai_types.ChatCompletionReasoningEffort = None,
-    ) -> Llm:
+    ) -> "LiveLlm":
         return LiveLlm(
             model.value,
             "http://localhost:11434",
@@ -89,17 +89,17 @@ class LiveLlm(Llm):
 
 
 class MockLlm(Llm):
-    history: typing.Iterator[ChatMessage]
+    history: typing.Iterator[types.ChatMessage]
 
-    def __init__(self, history: typing.Iterable[ChatMessage]) -> None:
+    def __init__(self, history: typing.Iterable[types.ChatMessage]) -> None:
         self.history = iter(history)
 
     def prompt(
         self,
         runtime: Runtime,  # noqa: ARG002
-        messages: list[ChatMessage],  # noqa: ARG002
+        messages: list[types.ChatMessage],  # noqa: ARG002
         response_format: ResponseFormat,  # noqa: ARG002
-    ) -> ChatMessage:
+    ) -> types.ChatMessage:
         return self.history.__next__()
 
 
@@ -112,7 +112,7 @@ class ToolLlm:
 
     def prompt(
         self,
-        messages: list[ChatMessage],
+        messages: list[types.ChatMessage],
         response_format: ResponseFormat,
-    ) -> ChatMessage:
+    ) -> types.ChatMessage:
         return self.llm.prompt(self.runtime, messages, response_format)

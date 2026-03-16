@@ -5,8 +5,6 @@ from collections.abc import Callable
 import agentdojo.functions_runtime as rt
 import jsonschema
 import pydantic
-from agentdojo.types import ChatMessage
-from pydantic.main import IncEx
 
 from lamb import ifc, runtime, types
 
@@ -18,7 +16,7 @@ if typing.TYPE_CHECKING:
 
 class QueryLlmResponse(pydantic.BaseModel):
     response: str | int | float | list | dict
-    history: list[ChatMessage]
+    history: list[types.ChatMessage]
     ifc_label: ifc.IFCLabel
 
 

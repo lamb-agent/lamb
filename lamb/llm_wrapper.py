@@ -1,11 +1,10 @@
 # Copied from https://github.com/ethz-spylab/agentdojo/blob/5cea5891fa8e6b13c4299a94691e1ec64d445fcd/src/agentdojo/agent_pipeline/llms/openai_llm.py
 import json
+import typing
 from collections.abc import Sequence
-from typing import overload
 
 import openai
 from agentdojo import functions_runtime as rt
-from agentdojo import types as ad
 from openai.types import chat as openai_chat
 from openai.types.chat.completion_create_params import ResponseFormat
 from openai.types.shared_params import FunctionDefinition
@@ -16,14 +15,12 @@ from tenacity import (
     wait_random_exponential,
 )
 
-from lamb import logging
+from lamb import logging, types
 
 
 def _tool_call_to_openai(
-    tool_call: rt.FunctionCall,
+    tool_call: types.FunctionCall,
 ) -> openai_chat.ChatCompletionMessageToolCallParam:
-    if tool_call.id is None:
-        raise ValueError("`tool_call.id` is required for OpenAI")
     return openai_chat.ChatCompletionMessageToolCallParam(
         id=tool_call.id,
         type="function",
@@ -34,52 +31,29 @@ def _tool_call_to_openai(
     )
 
 
-@overload
 def _content_blocks_to_openai_content_blocks(
-    message: ad.ChatUserMessage | ad.ChatSystemMessage,
-) -> list[openai_chat.ChatCompletionContentPartTextParam]: ...
-
-
-@overload
-def _content_blocks_to_openai_content_blocks(
-    message: ad.ChatAssistantMessage | ad.ChatToolResultMessage,
-) -> list[openai_chat.ChatCompletionContentPartTextParam] | None: ...
-
-
-def _content_blocks_to_openai_content_blocks(
-    message: ad.ChatUserMessage
-    | ad.ChatAssistantMessage
-    | ad.ChatSystemMessage
-    | ad.ChatToolResultMessage,
-) -> list[openai_chat.ChatCompletionContentPartTextParam] | None:
-    if message["content"] is None:
-        return None
+    message: types.ChatMessage,
+) -> list[openai_chat.ChatCompletionContentPartTextParam]:
     return [
         openai_chat.ChatCompletionContentPartTextParam(
-            type="text", text=el["content"] or ""
+            type="text", text=message.content
         )
-        for el in message["content"]
     ]
 
 
 def _message_to_openai(
-    message: ad.ChatMessage,
+    message: types.ChatMessage,
 ) -> openai_chat.ChatCompletionMessageParam:
-    match message["role"]:
-        case "system":
-            return openai_chat.ChatCompletionSystemMessageParam(
-                role="system",
-                content=_content_blocks_to_openai_content_blocks(message),
-            )
-        case "user":
+    match message:
+        case types.UserMessage(role=role):
             return openai_chat.ChatCompletionUserMessageParam(
-                role="user", content=_content_blocks_to_openai_content_blocks(message)
+                role=role, content=_content_blocks_to_openai_content_blocks(message)
             )
-        case "assistant":
-            if message["tool_calls"] is not None and len(message["tool_calls"]) > 0:
+        case types.AssistantMessage(role=role):
+            if len(message.tool_calls) > 0:
                 tool_calls = [
                     _tool_call_to_openai(tool_call)
-                    for tool_call in message["tool_calls"]
+                    for tool_call in message.tool_calls
                 ]
                 return openai_chat.ChatCompletionAssistantMessageParam(
                     role="assistant",
@@ -90,24 +64,22 @@ def _message_to_openai(
                 role="assistant",
                 content=_content_blocks_to_openai_content_blocks(message),
             )
-        case "tool":
-            if message["tool_call_id"] is None:
-                raise ValueError("`tool_call_id` should be specified for OpenAI.")
+        case types.ToolMessage():
             return openai_chat.ChatCompletionToolMessageParam(
-                content=message["error"]
+                content=message.error
                 or _content_blocks_to_openai_content_blocks(message),
-                tool_call_id=message["tool_call_id"],
+                tool_call_id=message.tool_call_id,
                 role="tool",
-                name=message["tool_call"].function,  # type: ignore -- this is actually used, and is important!
+                name=message.tool_call.function,  # type: ignore -- this is actually used, and is important!
             )
         case _:
-            raise ValueError(f"Invalid message type: {message}")
+            typing.assert_never(message)
 
 
 def _openai_to_tool_call(
     tool_call: openai_chat.ChatCompletionMessageFunctionToolCall,
-) -> rt.FunctionCall:
-    return rt.FunctionCall(
+) -> types.FunctionCall:
+    return types.FunctionCall(
         function=tool_call.function.name,
         args=json.loads(tool_call.function.arguments),
         id=tool_call.id,
@@ -116,15 +88,13 @@ def _openai_to_tool_call(
 
 def _assistant_message_to_content(
     message: openai_chat.ChatCompletionMessage,
-) -> list[ad.MessageContentBlock] | None:
-    if message.content is None:
-        return None
-    return [ad.text_content_block_from_string(message.content)]
+) -> str:
+    return message.content or ""
 
 
 def _openai_to_assistant_message(
     message: openai_chat.ChatCompletionMessage,
-) -> ad.ChatAssistantMessage:
+) -> types.AssistantMessage:
     if message.tool_calls is not None:
         tool_calls = [
             _openai_to_tool_call(tool_call)
@@ -132,9 +102,8 @@ def _openai_to_assistant_message(
             if isinstance(tool_call, openai_chat.ChatCompletionMessageFunctionToolCall)
         ]
     else:
-        tool_calls = None
-    return ad.ChatAssistantMessage(
-        role="assistant",
+        tool_calls = []
+    return types.AssistantMessage(
         content=_assistant_message_to_content(message),
         tool_calls=tool_calls,
     )
@@ -154,13 +123,13 @@ def _function_to_openai(f: rt.Function) -> openai_chat.ChatCompletionToolParam:
 def prompt(
     model: str,
     runtime: rt.FunctionsRuntime,
-    messages: Sequence[ad.ChatMessage],
+    messages: Sequence[types.ChatMessage],
     response_format: ResponseFormat,
     base_url: str | None = None,
     api_key: str | None = None,
     temperature: float = 0.0,
     reasoning_effort: openai_chat.ChatCompletionReasoningEffort | None = None,
-) -> ad.ChatMessage:
+) -> types.ChatMessage:
     client = openai.OpenAI(api_key=api_key, base_url=base_url)
     openai_messages = [_message_to_openai(message) for message in messages]
     openai_tools = [_function_to_openai(tool) for tool in runtime.functions.values()]

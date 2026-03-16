@@ -43,7 +43,9 @@ class Runtime:
             else:
                 return result, None
 
-        return self.functions_runtime.run_function(self.env, tool, args)
+        return self.functions_runtime.run_function(
+            self.env, tool, types.args_to_ad(args)
+        )
 
     def set_functions(
         self, fns: list[rt.Function], custom_functions: list[rt.Function]

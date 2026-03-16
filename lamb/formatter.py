@@ -1,11 +1,13 @@
+import typing
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from typing import assert_never
 
 import agentdojo.functions_runtime as rt
 import yaml
 from pydantic import BaseModel
 
-from lamb import ifc, tool_categories, types, query_llm
+from lamb import ifc, query_llm, tool_categories, types
 
 
 class VariableFormatter(types.Formatter):
@@ -72,20 +74,22 @@ class VariableFormatter(types.Formatter):
                 expanded_text = expanded_text.replace(var, val)
             return expanded_text
 
-        def expand_arg(arg: rt.FunctionCallArgTypes) -> rt.FunctionCallArgTypes:
+        def expand_arg(arg: types.FunctionCallArgTypes) -> types.FunctionCallArgTypes:
             match arg:
                 case int() | float() | bool() | None:
                     return arg
                 case str():
                     return replace_vars(arg).strip() # models love to append new lines
-                case list():
+                case list() if types.is_arg_list(arg):
                     return [expand_arg(item) for item in arg]
-                case dict():
+                case dict() if types.is_arg_dict(arg):
                     return {key: expand_arg(val) for key, val in arg.items()}
-                case rt.FunctionCall():
-                    return arg.model_copy(update={"args": self.expand(tool, arg.args)})
+                case types.FunctionCall():
+                    return replace(arg, args=self.expand(tool, arg.args))
                 case _:
-                    assert_never(arg)
+                    assert_never(
+                        typing.cast("typing.Never", arg)
+                    )  # static code analysis can't compute this
 
         expanded_args = {key: expand_arg(val) for key, val in args.items()}
         source_label = self.check_call(tool, args, expanded_args)
@@ -119,7 +123,7 @@ class VariableFormatter(types.Formatter):
         )
 
 
-def _stringify_result(
+def _stringify_result(  # noqa: C901
     val: rt.FunctionReturnType,
     dump_fn: Callable[[dict | list[dict]], str] = yaml.safe_dump,
 ) -> str:

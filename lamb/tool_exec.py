@@ -2,13 +2,6 @@
 from ast import literal_eval
 from dataclasses import dataclass
 
-import agentdojo.functions_runtime as rt
-from agentdojo.types import (
-    ChatMessage,
-    ChatToolResultMessage,
-    text_content_block_from_string,
-)
-
 from lamb import ifc, query_llm, types
 from lamb.runtime import Runtime
 
@@ -26,14 +19,13 @@ class ToolExec:
     runtime: Runtime
     formatter: types.Formatter
 
-    def exec(self, calls: list[rt.FunctionCall]) -> list[ChatMessage]:
+    def exec(self, calls: list[types.FunctionCall]) -> list[types.ChatMessage]:
         tool_call_results = []
         for tool_call in calls:
             if tool_call.function not in self.runtime.tools():
                 tool_call_results.append(
-                    ChatToolResultMessage(
-                        role="tool",
-                        content=[text_content_block_from_string("")],
+                    types.ToolMessage(
+                        content="",
                         tool_call_id=tool_call.id,
                         tool_call=tool_call,
                         error=f"Invalid tool {tool_call.function} provided.",
@@ -50,17 +42,16 @@ class ToolExec:
             args = self.formatter.expand(tool, tool_call.args)
 
             tool_call_result, error = self.runtime.exec(tool_call.function, args)
-            result: ChatToolResultMessage
+            result: types.ToolMessage
             if error is not None:
-                result = ChatToolResultMessage(
-                    role="tool",
-                    content=[text_content_block_from_string("")],
+                result = types.ToolMessage(
+                    content="",
                     tool_call_id=tool_call.id,
                     tool_call=tool_call,
                     error=error,
                 )
             else:
-                history: list[ChatMessage] | None = None
+                history: list[types.ChatMessage] | None = None
                 if tool.name in ["query_llm", "query_llm_structured"]:
                     assert isinstance(tool_call_result, query_llm.QueryLlmResponse)
                     history = tool_call_result.history
@@ -70,20 +61,16 @@ class ToolExec:
                         tool,
                         tool_call_result,
                     )
-                    result = ChatToolResultMessage(
-                        role="tool",
-                        content=[
-                            text_content_block_from_string(formatted_tool_call_result)
-                        ],
+                    result = types.ToolMessage(
+                        content=formatted_tool_call_result,
                         tool_call_id=tool_call.id,
                         tool_call=tool_call,
                         error=error,
+                        history=history
                     )
-                    result["history"] = history  # type: ignore
                 except ifc.IFCError as e:
-                    result = ChatToolResultMessage(
-                        role="tool",
-                        content=[text_content_block_from_string("")],
+                    result = types.ToolMessage(
+                        content="",
                         tool_call_id=tool_call.id,
                         tool_call=tool_call,
                         error=str(e),
