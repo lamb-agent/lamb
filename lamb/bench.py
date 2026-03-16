@@ -485,6 +485,7 @@ def benchmark(
     for suite_name, suite in suites_to_run.items():
         logging.debug(f"Executing suite {suite_name}")
         agent_pipeline = pipeline.AgentPipeline([agent_loop])
+        agent_pipeline.name = f"{agent}_{model}"
         base_attack = None
         if attack is not None:
             base_attack = agentdojo.attacks.load_attack(attack, suite, agent_pipeline)
