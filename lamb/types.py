@@ -155,14 +155,18 @@ def message_to_ad(message: ChatMessage) -> ad.ChatMessage:
                 tool_calls=[function_call_to_ad(call) for call in tool_calls],
                 content=content_to_ad(content),
             )
-        case ToolMessage(content, error, tool_call_id, tool_call, role):
-            return ad.ChatToolResultMessage(
+        case ToolMessage(content, error, tool_call_id, tool_call, role, history):
+            tool_message = ad.ChatToolResultMessage(
                 tool_call=function_call_to_ad(tool_call),
                 content=content_to_ad(content),
                 role=role,
                 tool_call_id=tool_call_id,
                 error=error,
             )
+            if history:
+                # it's just a dict, we can append the history for logging
+                tool_message["history"] = history # type: ignore
+            return tool_message
         case _:
             typing.assert_never(message)
 
