@@ -72,6 +72,7 @@ def make_function(
     description: str,
     parameters: list[tuple[str, str, str]],
     fn: Callable,
+    dependencies: list[str] = [],  # noqa: B006
 ) -> rt.Function:
     # NOTE: the typing here is a bit fucked up.
     # params has the correct type expected inside the create_model function,
@@ -85,7 +86,7 @@ def make_function(
         name=name,
         description=description,
         parameters=pydantic.create_model(f"Input schema for {name}", **params),
-        dependencies={},
+        dependencies={dep: rt.Depends(dep) for dep in dependencies},
         run=fn,
         full_docstring="",  # unused
         return_type=None,  # unused
