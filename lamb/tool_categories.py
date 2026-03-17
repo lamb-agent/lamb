@@ -289,7 +289,9 @@ UNTRUSTED_SOURCE: set[typing.Callable] = {
 thus would taint the model, if revealed."""
 
 # TODO: Do we have any trusted sinks?
-TRUSTED_SINK: set[typing.Callable] = set()
+TRUSTED_SINK: set[typing.Callable] = {
+    slack.invite_user_to_slack
+}
 """Tools that must only be called with trusted (non-tainted) information."""
 UNTRUSTED_SINK: set[typing.Callable] = ALL - TRUSTED_SINK
 """Tools that can be called with untrusted (tainted) information."""
