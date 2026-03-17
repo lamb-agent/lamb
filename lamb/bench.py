@@ -1,11 +1,11 @@
 import subprocess
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from json import dump, load
 from pathlib import Path
-from typing import Any, Self
+from typing import Self
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.attacks
@@ -43,6 +43,18 @@ class TaskResults(BaseModel):
             dump(self.model_dump(mode="json"), f, indent=2)
 
 
+def aggregate(results: list[bool]) -> float:
+    return sum(results) / len(results) if results else 0.0
+
+
+def aggregate_utilty(results: Iterable[TaskResults]) -> float:
+    return aggregate([result.utility for result in results])
+
+
+def aggregate_security(results: Iterable[TaskResults]) -> float:
+    return aggregate([result.security for result in results])
+
+
 class SuiteResults:
     suite: str
     user_runs: dict[str, TaskResults]
@@ -66,34 +78,13 @@ class SuiteResults:
         self.injection_runs = injection_runs
         self.attack_runs = attack_runs
 
-        self.utility_user_tasks = self.aggregate_results(
-            self.get_all_utility(lambda suite_results: suite_results.user_runs)
-        )
-        self.utility_injection_tasks = self.aggregate_results(
-            self.get_all_utility(lambda suite_results: suite_results.injection_runs)
-        )
-        self.utility_with_attack = self.aggregate_results(
-            self.get_all_utility(lambda suite_results: suite_results.attack_runs)
-        )
-        self.security = self.aggregate_results(self.get_all_security())
+        self.utility_user_tasks = aggregate_utilty(self.user_runs.values())
+        self.utility_injection_tasks = aggregate_utilty(self.injection_runs.values())
+        self.utility_with_attack = aggregate_utilty(self.attack_runs.values())
+        self.security = aggregate_security(self.attack_runs.values())
         self.count = (
             len(self.user_runs) + len(self.injection_runs) + len(self.attack_runs)
         )
-
-    @staticmethod
-    def get_all_utility[T](results: dict[T, TaskResults]) -> dict[T, bool]:
-        return {name: task_results.utility for name, task_results in results.items()}
-
-    def get_all_security(self) -> dict[Any, bool]:
-        return {
-            name: task_results.security
-            for name, task_results in self.attack_runs.items()
-        }
-
-    @staticmethod
-    def aggregate_results(results: dict[Any, bool]) -> float:
-        all_results = list(results.values())
-        return sum(all_results) / len(all_results) if all_results else 0.0
 
     def save(self, log_dir: Path) -> None:
         suite_folder = log_dir / self.suite
@@ -149,7 +140,7 @@ def run_task(
     injection_task: agentdojo.base_tasks.BaseInjectionTask | None,
     attack: agentdojo.attacks.BaseAttack | None,
     logdir: Path | None,
-    force_rerun: bool,
+    force_rerun: bool,  # noqa: FBT001
 ) -> TaskResults:
     """Run a task. If both a user task and an injection task are specified, as
     well as an attack, the user task is carried out with the injection task
@@ -215,7 +206,7 @@ def run_task(
         if with_attack:
             logging.info(
                 "Skipping task"
-                " '{user_task.ID}' with '{injection_task.ID}'"  # type: ignore
+                " '{user_task.ID}' with '{injection_task.ID}'"
                 " because it was already run."
             )
         else:
