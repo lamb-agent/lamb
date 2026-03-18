@@ -92,7 +92,7 @@ def is_arg_list(
 def arg_to_ad(arg: FunctionCallArgTypes) -> rt.FunctionCallArgTypes:
     match arg:
         case FunctionCall():
-            return arg_to_ad(arg)
+            return function_call_to_ad(arg)
         case _:
             return arg
 
