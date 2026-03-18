@@ -167,17 +167,14 @@ def run_task(
 
     """
 
-    task = user_task
-    if task is None:
-        task = injection_task
+    task = user_task or injection_task
 
     assert task is not None, "Either user_task or injection_task should be set"
 
     with_attack = False
-    injection_task_id = "none"
-    injections = {}
+    injection_task_id = injection_task.ID if injection_task else "none"
+    injections: dict[str, str] = {}
     attack_name = "none"
-    injection_task_to_run = None
 
     if user_task and injection_task:
         assert attack is not None, (
@@ -185,9 +182,7 @@ def run_task(
         )
         with_attack = True
         attack_name = attack.name
-        injection_task_id = injection_task.ID
-        injection_task_to_run = suite.get_injection_task_by_id(injection_task_id)
-        injections = attack.attack(user_task, injection_task_to_run)
+        injections = attack.attack(user_task, injection_task)
 
     if logdir is not None:
         try:
@@ -219,9 +214,20 @@ def run_task(
     start = time.time()
     with logging.CaptureLogger() as cap:
         try:
-            utility, security = suite.run_task_with_pipeline(
-                agent_pipeline, task, injection_task=None, injections=injections
-            )
+            if with_attack:
+                utility, security = suite.run_task_with_pipeline(
+                    agent_pipeline=agent_pipeline,
+                    user_task=task,
+                    injection_task=injection_task,
+                    injections=injections,
+                )
+            else:
+                utility, security = suite.run_task_with_pipeline(
+                    agent_pipeline=agent_pipeline,
+                    user_task=task,
+                    injection_task=None,
+                    injections={},
+                )
         except agentdojo.benchmark.BadRequestError as e:
             if (
                 e.code == "context_length_exceeded"
@@ -400,7 +406,7 @@ def benchmark_suite(
                 user_task=user_task,
                 injection_task=injection_task,
                 attack=attack,
-                logdir=log_dir / suite.name if log_dir else None,
+                logdir=log_dir,
                 force_rerun=force_rerun,
             )
             if log_dir:
@@ -509,7 +515,14 @@ def benchmark(
             print(f"\t\t\tUtility (injection tasks): {results.utility_injection_tasks}")
             print(f"\t\t\tSecurity score: {results.security}")
         else:
-            print(f"Suite: {suite_name}\tUtility score: {results.utility_user_tasks}")
+            print(
+                f"Suite: {suite_name}\tUtility score (user tasks): \t\t"
+                f"{results.utility_user_tasks}"
+            )
+            print(
+                "\t\tUtility score (injection tasks):\t"
+                f"{results.utility_injection_tasks}"
+            )
         suite_results[suite_name] = results
     benchmark_results = BenchmarkResults(
         suite_results=suite_results,
