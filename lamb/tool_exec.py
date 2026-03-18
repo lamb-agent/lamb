@@ -2,6 +2,8 @@
 from ast import literal_eval
 from dataclasses import dataclass
 
+import pydantic
+
 from lamb import ifc, query_llm, types
 from lamb.runtime import Runtime
 
@@ -39,7 +41,18 @@ class ToolExec:
                     tool_call.args[arg_k] = literal_eval(arg_v)
 
             tool = self.runtime.get_function(tool_call.function)
-            args = self.formatter.expand(tool, tool_call.args)
+            try:
+                args = self.formatter.expand(tool, tool_call.args)
+            except pydantic.ValidationError as e:
+                tool_call_results.append(
+                    types.ToolMessage(
+                        content="",
+                        error=f"ValidationError: {e}",
+                        tool_call_id=tool_call.id,
+                        tool_call=tool_call,
+                    )
+                )
+                continue
 
             tool_call_result, error = self.runtime.exec(tool_call.function, args)
             result: types.ToolMessage
@@ -66,7 +79,7 @@ class ToolExec:
                         tool_call_id=tool_call.id,
                         tool_call=tool_call,
                         error=error,
-                        history=history
+                        history=history,
                     )
                 except ifc.IFCError as e:
                     result = types.ToolMessage(

@@ -92,6 +92,7 @@ class VariableFormatter(types.Formatter):
                     )  # static code analysis can't compute this
 
         expanded_args = {key: expand_arg(val) for key, val in args.items()}
+        tool.parameters.model_validate(expanded_args)
         source_label = self.check_call(tool, args, expanded_args)
         # attach ifc label as extra argument for query_llm functions
         expanded_args["ifc_label"] = str(source_label)

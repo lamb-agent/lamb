@@ -1,8 +1,8 @@
-# Run with > uv run pyetest
+# Run with > uv run pytest
 import typing
 
 from agentdojo import functions_runtime as rt
-from agentdojo.default_suites.v1.tools import slack
+from agentdojo.default_suites.v1.tools import email_client, slack
 from agentdojo.task_suite import load_suites
 
 from lamb import ifc, labels, runtime, types
@@ -11,6 +11,7 @@ from lamb.llm import MockLlm
 
 if typing.TYPE_CHECKING:
     from agentdojo.default_suites.v1.slack.task_suite import SlackEnvironment
+    from agentdojo.default_suites.v1.workspace.task_suite import WorkspaceEnvironment
 
 EMPTY_RUNTIME = rt.FunctionsRuntime([])
 EMPTY_ENV = rt.TaskEnvironment()
@@ -19,6 +20,11 @@ EMPTY_ENV = rt.TaskEnvironment()
 def slack_env() -> "SlackEnvironment":
     slack_suite = load_suites.get_suite("v1.2", "slack")
     return slack_suite.load_and_inject_default_environment({})
+
+
+def workspace_env() -> "WorkspaceEnvironment":
+    ws_suite = load_suites.get_suite("v1.2", "workspace")
+    return ws_suite.load_and_inject_default_environment({})
 
 
 def make_function(
@@ -39,6 +45,20 @@ INVITE_USER_TO_SLACK = make_function(
     [("user", "str"), ("user_email", "str")],
     slack.invite_user_to_slack,
     ["slack"],
+)
+
+SEND_EMAIL = make_function(
+    "send_email",
+    [
+        ("recipients", "list"),
+        ("subject", "str"),
+        ("body", "str"),
+        ("attachments", "list"),
+        ("cc", "list"),
+        ("bcc", "list"),
+    ],
+    email_client.send_email,
+    ["inbox"],
 )
 
 
@@ -105,3 +125,34 @@ def test_slack_invite() -> None:
     )
     _, _ = a.prompt("Invite Fred (fred@gmail.com) to slack")
     assert fred in env.slack.users
+
+
+def test_argument_validation() -> None:
+    frt = rt.FunctionsRuntime([SEND_EMAIL])
+    env = workspace_env()
+    call_0 = types.FunctionCall(
+        SEND_EMAIL.name,
+        {
+            "recipients": ["paul@gmail.com"],
+            "subject": "test",
+            "body": "test",
+            "attachments": "BAD TYPE",
+            "cc": [],
+            "bcc": [],
+        },
+        "0",
+    )
+    messages: list[types.ChatMessage] = [
+        tool_call_msg(call_0),
+        assistant_msg("content"),
+    ]
+    a = Agent.lamb_static_ifc(
+        MockLlm(messages),
+        frt,
+        env,
+        labels.ADLabeler(env),
+    )
+    history, _ = a.prompt("Send an email to paul@gmail.com with a bad attachment")
+    assert isinstance(history[-2], types.ToolMessage)
+    assert history[-2].error is not None
+    assert "ValidationError" in history[-2].error
