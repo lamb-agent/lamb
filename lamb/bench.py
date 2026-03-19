@@ -362,13 +362,13 @@ def benchmark_suite(
     injection_tasks: Sequence[str] | None = None,
     n_repeats: int = 1,  # TODO: use n_repeats
     force_rerun: bool = False,
-) -> SuiteResults:
+) -> tuple[SuiteResults, bool]:
     """Benchmark a suite.
 
     Args:
         agent_pipeline: The agent pipeline to use.
         suite: The suite to benchmark.
-        logdir: The directory to save logs to.
+        log_dir: The directory to save logs to.
         attack: The attack to use in the injection tests.
         user_tasks: A subset of user tasks to run. If None, all user tasks are
             run.
@@ -378,6 +378,12 @@ def benchmark_suite(
         n_repeats: Sets how many times a given user task is run.
         force_rerun: Sets if earlier runs should be recovered from the log
             files or ignored and run from the start.
+
+    Returns:
+        (suite_results, completed): A tuple of the SuiteResults instance
+        containing the task results and the `completed` flag which signals
+        if benchmarking the suite has run to completion. In case of a
+        KeyboardInterrupt this value is set to False.
 
     """
     user_runs: dict[str, TaskResults] = {}
@@ -438,45 +444,51 @@ def benchmark_suite(
             )
             if log_dir:
                 task_results.save(log_dir / suite.name, file_name)
-            return task_results
+        return task_results
 
-    for user_task_id, user_task in user_tasks_to_run.items():
-        task_results = run_and_save_task(
-            user_task=user_task,
-            injection_task=None,
-            attack=None,
-            file_name=f"user-{user_task_id}.json",
-        )
-        user_runs[user_task_id] = task_results
-
-    for injection_task_id, injection_task in injection_tasks_to_run.items():
-        task_results = run_and_save_task(
-            user_task=None,
-            injection_task=injection_task,
-            attack=None,
-            file_name=f"injection-{injection_task_id}.json",
-        )
-        injection_runs[injection_task_id] = task_results
-
-    for user_task_id, user_task in user_tasks_to_run.items():
-        for injection_task_id, injection_task in injection_tasks_to_run.items():
+    try:
+        for user_task_id, user_task in user_tasks_to_run.items():
             task_results = run_and_save_task(
                 user_task=user_task,
-                injection_task=injection_task,
-                attack=attack,
-                file_name=f"attack-{user_task_id}-{injection_task_id}.json",
+                injection_task=None,
+                attack=None,
+                file_name=f"user-{user_task_id}.json",
             )
-            attack_runs[(user_task_id, injection_task_id)] = task_results
+            user_runs[user_task_id] = task_results
 
+        for injection_task_id, injection_task in injection_tasks_to_run.items():
+            task_results = run_and_save_task(
+                user_task=None,
+                injection_task=injection_task,
+                attack=None,
+                file_name=f"injection-{injection_task_id}.json",
+            )
+            injection_runs[injection_task_id] = task_results
+
+        for user_task_id, user_task in user_tasks_to_run.items():
+            for injection_task_id, injection_task in injection_tasks_to_run.items():
+                task_results = run_and_save_task(
+                    user_task=user_task,
+                    injection_task=injection_task,
+                    attack=attack,
+                    file_name=f"attack-{user_task_id}-{injection_task_id}.json",
+                )
+                attack_runs[(user_task_id, injection_task_id)] = task_results
+    except KeyboardInterrupt:
+        return SuiteResults(
+            suite=suite.name,
+            user_runs=user_runs,
+            injection_runs=injection_runs,
+            attack_runs=attack_runs,
+        ), False
     return SuiteResults(
         suite=suite.name,
         user_runs=user_runs,
         injection_runs=injection_runs,
         attack_runs=attack_runs,
-    )
+    ), True
 
 
-# TODO: gracefully stop when catching a keyboard interrupt
 def benchmark(
     agent_loop: agent.ADAgentLoop,
     agent: str,
@@ -511,7 +523,8 @@ def benchmark(
         base_attack = None
         if attack is not None:
             base_attack = agentdojo.attacks.load_attack(attack, suite, agent_pipeline)
-        results: SuiteResults = benchmark_suite(
+        results: SuiteResults
+        results, completed = benchmark_suite(
             agent_pipeline=agent_pipeline,
             suite=suite,
             log_dir=bench_dir,
@@ -540,6 +553,8 @@ def benchmark(
                 f"{results.utility_injection_tasks}"
             )
         suite_results[suite_name] = results
+        if not completed:
+            break
     benchmark_results = BenchmarkResults(
         suite_results=suite_results,
         agent=agent,
