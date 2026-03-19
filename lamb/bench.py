@@ -347,10 +347,10 @@ def _get_git_revision() -> str | None:
         return commit
 
 
-def init_benchmark_dir(log_dir: Path) -> tuple[Path, datetime]:
+def init_benchmark_dir(log_dir: Path, agent: str) -> tuple[Path, datetime]:
     run_start = datetime.now(tz=UTC)
     timestamp_folder = run_start.astimezone().strftime("%Y-%m-%d_%H-%M-%S")
-    bench_dir = log_dir / f"bench-{timestamp_folder}"
+    bench_dir = log_dir / f"bench-{agent}-{timestamp_folder}"
     bench_dir.mkdir(parents=True, exist_ok=True)
 
     return bench_dir, run_start
@@ -505,7 +505,7 @@ def benchmark(
     n_repeats: int = 1,
     force_rerun: bool = False,
 ) -> BenchmarkResults:
-    bench_dir, timestamp = init_benchmark_dir(log_dir)
+    bench_dir, timestamp = init_benchmark_dir(log_dir, agent)
     suites_to_run: dict[str, agentdojo.task_suite.TaskSuite] = (
         agentdojo.task_suite.get_suites(suite_version)
     )
