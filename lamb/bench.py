@@ -19,7 +19,7 @@ from lamb import agent, logging
 
 
 class TaskResults(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="allow")
     user_task_id: str | None
     injection_task_id: str | None
     attack_type: str | None
