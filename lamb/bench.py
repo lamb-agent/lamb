@@ -187,6 +187,7 @@ def run_task(
     if logdir is not None:
         try:
             task_result = load_task_results(
+                agent_pipeline=agent_pipeline.name or "none",
                 suite_name=suite.name,
                 user_task=user_task.ID if user_task else "none",
                 injection_task=injection_task_id,
@@ -281,6 +282,7 @@ def run_task(
 
 
 def load_task_results(
+    agent_pipeline: str,
     suite_name: str,
     user_task: str,
     injection_task: str,
@@ -307,6 +309,14 @@ def load_task_results(
     dirs.sort(reverse=True)
 
     for folder in dirs:
+        bench_file = base_path / folder / "bench.json"
+        with bench_file.open() as f:
+            bench = load(f)
+            bench_pipeline = f"{bench['agent']}_{bench['model']}".removeprefix("local_")
+            agent_pipeline = agent_pipeline.removeprefix("local_")
+            if bench_pipeline != agent_pipeline:
+                continue
+
         file = base_path / folder / file_path
         if Path.exists(file):
             with file.open() as f:
@@ -465,6 +475,7 @@ def benchmark_suite(
     )
 
 
+# TODO: gracefully stop when catching a keyboard interrupt
 def benchmark(
     agent_loop: agent.ADAgentLoop,
     agent: str,
@@ -491,7 +502,11 @@ def benchmark(
     for suite_name, suite in suites_to_run.items():
         logging.debug(f"Executing suite {suite_name}")
         agent_pipeline = pipeline.AgentPipeline([agent_loop])
-        agent_pipeline.name = f"{agent}_{model}"
+        agent_pipeline.name = f"local_{agent}_{model}"
+        """`local` needs to be part of the agent pipeline name attribute
+        in order for some AD attacks to run that need to fetch the model name
+        for certain injection vectors."""
+
         base_attack = None
         if attack is not None:
             base_attack = agentdojo.attacks.load_attack(attack, suite, agent_pipeline)
