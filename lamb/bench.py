@@ -425,7 +425,7 @@ def benchmark_suite(
             raise
         except Exception as e:  # noqa: BLE001
             logging.exception(str(e))
-            return TaskResults(
+            task_results = TaskResults(
                 user_task_id=user_task.ID if user_task else None,
                 injection_task_id=injection_task.ID if injection_task else None,
                 attack_type=attack.name if attack else None,
@@ -436,7 +436,8 @@ def benchmark_suite(
                 duration=0.0,
                 error=str(e),
             )
-        else:
+            if log_dir:
+                task_results.save(log_dir / suite.name, file_name)
             return task_results
 
     for user_task_id, user_task in user_tasks_to_run.items():
