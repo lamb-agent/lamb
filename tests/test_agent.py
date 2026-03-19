@@ -2,7 +2,7 @@
 import typing
 
 from agentdojo import functions_runtime as rt
-from agentdojo.default_suites.v1.tools import email_client, slack
+
 from agentdojo.task_suite import load_suites
 
 from lamb import ifc, labels, runtime, types
@@ -13,18 +13,23 @@ if typing.TYPE_CHECKING:
     from agentdojo.default_suites.v1.slack.task_suite import SlackEnvironment
     from agentdojo.default_suites.v1.workspace.task_suite import WorkspaceEnvironment
 
-EMPTY_RUNTIME = rt.FunctionsRuntime([])
-EMPTY_ENV = rt.TaskEnvironment()
+
+def empty_rt() -> tuple[rt.FunctionsRuntime, rt.TaskEnvironment]:
+    return rt.FunctionsRuntime([]), rt.TaskEnvironment()
 
 
-def slack_env() -> "SlackEnvironment":
+def slack_rt() -> tuple[rt.FunctionsRuntime, "SlackEnvironment"]:
     slack_suite = load_suites.get_suite("v1.2", "slack")
-    return slack_suite.load_and_inject_default_environment({})
+    return rt.FunctionsRuntime(
+        slack_suite.tools
+    ), slack_suite.load_and_inject_default_environment({})
 
 
-def workspace_env() -> "WorkspaceEnvironment":
+def workspace_rt() -> tuple[rt.FunctionsRuntime, "WorkspaceEnvironment"]:
     ws_suite = load_suites.get_suite("v1.2", "workspace")
-    return ws_suite.load_and_inject_default_environment({})
+    return rt.FunctionsRuntime(
+        ws_suite.tools
+    ), ws_suite.load_and_inject_default_environment({})
 
 
 def make_function(
@@ -36,30 +41,6 @@ def make_function(
     return runtime.make_function(
         name, "", [(param, t, "") for param, t in params], fn, dependencies
     )
-
-
-GET_CURRENT_DAY = make_function("get_current_day", [], lambda: "2026-16-03")
-
-INVITE_USER_TO_SLACK = make_function(
-    "invite_user_to_slack",
-    [("user", "str"), ("user_email", "str")],
-    slack.invite_user_to_slack,
-    ["slack"],
-)
-
-SEND_EMAIL = make_function(
-    "send_email",
-    [
-        ("recipients", "list"),
-        ("subject", "str"),
-        ("body", "str"),
-        ("attachments", "list"),
-        ("cc", "list"),
-        ("bcc", "list"),
-    ],
-    email_client.send_email,
-    ["inbox"],
-)
 
 
 def tool_call_msg(call: types.FunctionCall) -> types.AssistantMessage:
@@ -78,24 +59,25 @@ def assistant_msg(msg: str) -> types.AssistantMessage:
 
 def test_single_empty() -> None:
     messages: list[types.ChatMessage] = [types.AssistantMessage("content", [])]
-    a = Agent.single(MockLlm(messages), EMPTY_RUNTIME, EMPTY_ENV)
+    runtime, env = empty_rt()
+    a = Agent.single(MockLlm(messages), runtime, env)
     history, label = a.prompt("")
     assert history[-1] == messages[-1]
     assert label == ifc.IFCLabel.UH
 
 
 def test_single_tool_call() -> None:
-    frt = rt.FunctionsRuntime([GET_CURRENT_DAY])
-    call_0 = types.FunctionCall(GET_CURRENT_DAY.name, {}, "0")
+    runtime, env = workspace_rt()
+    call_0 = types.FunctionCall("get_current_day", {}, "0")
     messages: list[types.ChatMessage] = [
         tool_call_msg(call_0),
         assistant_msg("content"),
     ]
-    a = Agent.single(MockLlm(messages), frt, EMPTY_ENV)
+    a = Agent.single(MockLlm(messages), runtime, env)
     history, label = a.prompt("")
     assert history[-3] == messages[-2]
     assert history[-2] == types.ToolMessage(
-        content=GET_CURRENT_DAY.run(),
+        content="2024-05-15",
         error=None,
         tool_call_id=call_0.id,
         tool_call=call_0,
@@ -105,11 +87,10 @@ def test_single_tool_call() -> None:
 
 
 def test_slack_invite() -> None:
-    frt = rt.FunctionsRuntime([INVITE_USER_TO_SLACK])
-    env = slack_env()
+    runtime, env = slack_rt()
     fred = "Fred"
     call_0 = types.FunctionCall(
-        INVITE_USER_TO_SLACK.name,
+        "invite_user_to_slack",
         {"user": fred, "user_email": "fred@gmail.com"},
         "0",
     )
@@ -119,7 +100,7 @@ def test_slack_invite() -> None:
     ]
     a = Agent.lamb_static_ifc(
         MockLlm(messages),
-        frt,
+        runtime,
         env,
         labels.ADLabeler(env),
     )
@@ -128,10 +109,9 @@ def test_slack_invite() -> None:
 
 
 def test_argument_validation() -> None:
-    frt = rt.FunctionsRuntime([SEND_EMAIL])
-    env = workspace_env()
+    runtime, env = workspace_rt()
     call_0 = types.FunctionCall(
-        SEND_EMAIL.name,
+        "send_email",
         {
             "recipients": ["paul@gmail.com"],
             "subject": "test",
@@ -148,7 +128,7 @@ def test_argument_validation() -> None:
     ]
     a = Agent.lamb_static_ifc(
         MockLlm(messages),
-        frt,
+        runtime,
         env,
         labels.ADLabeler(env),
     )
