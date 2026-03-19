@@ -310,20 +310,23 @@ def load_task_results(
 
     for folder in dirs:
         bench_file = base_path / folder / "bench.json"
-        with bench_file.open() as f:
-            bench = load(f)
+        if not Path.exists(bench_file):
+            continue
+        with bench_file.open() as bench_json:
+            bench = load(bench_json)
             bench_pipeline = f"{bench['agent']}_{bench['model']}".removeprefix("local_")
             agent_pipeline = agent_pipeline.removeprefix("local_")
             if bench_pipeline != agent_pipeline:
                 continue
+            file = base_path / folder / file_path
+            if not Path.exists(file):
+                continue
+            with file.open() as test_file:
+                res_dict = load(test_file)
+                if not TaskResults(**res_dict).error:
+                    return TaskResults(**res_dict)
 
-        file = base_path / folder / file_path
-        if Path.exists(file):
-            with file.open() as f:
-                res_dict = load(f)
-            break
-
-    return TaskResults(**res_dict) if res_dict else None
+    return None
 
 
 def _get_git_revision() -> str | None:
