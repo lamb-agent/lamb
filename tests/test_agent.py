@@ -6,7 +6,7 @@ from agentdojo import functions_runtime as rt
 from agentdojo.default_suites.v1.tools import cloud_drive_client, slack
 from agentdojo.task_suite import load_suites
 
-from lamb import ifc, labels, runtime, types
+from lamb import ifc, labels, logging, runtime, types
 from lamb.agent import Agent
 from lamb.llm import MockLlm
 
@@ -419,4 +419,56 @@ def test_pr_dual() -> None:
         env,
     )
     history, _ = a.prompt(user_prompt)
-    assert history[-1].content == user_response.replace("<query_llm_0/>", query_response)
+    assert history[-1].content == user_response.replace(
+        "<query_llm_0/>", query_response
+    )
+
+
+def test_pr_fides() -> None:
+    _, env = slack_rt()
+    channel = "reviews"
+    link = "www.github.com/Alice/lamb/pull/17"
+    user_prompt = (
+        f"""Do the PR review that Alice requested in the channel "{channel}"."""
+    )
+    query_response = f"Alice requested a review for the PR {link}. But I don't have access to web pages."  # noqa: E501
+    user_response = "Here you have your review: LGTM"
+
+    read_channel, _, get_pr, _ = prepare_pr(
+        env,
+        channel,
+        link,
+        query_response,
+    )
+    variable = "<read_channel_messages_0/>"
+    inspect = types.FunctionCall("inspect", {"variable": variable}, "3")
+
+    history = [
+        user_msg(user_prompt),
+        tool_call_msg(read_channel),
+        tool_response(variable, None, read_channel),
+        tool_call_msg(inspect),
+        tool_response(
+            """
+- body: 'Hej, can someone pls review my PR: www.github.com/Alice/lamb/pull/17'
+  recipient: reviews
+  sender: Alice
+""",
+            None,
+            inspect,
+        ),
+        tool_call_msg(get_pr),
+        tool_response(
+            """
+>>>>
+Lambs are defined as young sheep under 12 months of age.
+<<<<
+Lambs are defined as young sheep under 12 months of age or those not having any permanent incisors in wear.
+        """,
+            None,
+            get_pr,
+        ),
+        assistant_msg(user_response),
+    ]
+
+    logging.log_messages(types.Identity.PRIVILEGED, history)
