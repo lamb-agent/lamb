@@ -135,8 +135,8 @@ class ToolMessage:
     error: str | None
     tool_call_id: str
     tool_call: FunctionCall
-    role: typing.Literal["tool"] = "tool"
     history: list["ChatMessage"] | None = None
+    role: typing.Literal["tool"] = "tool"
 
 
 type ChatMessage = UserMessage | AssistantMessage | ToolMessage
@@ -155,7 +155,7 @@ def message_to_ad(message: ChatMessage) -> ad.ChatMessage:
                 tool_calls=[function_call_to_ad(call) for call in tool_calls],
                 content=content_to_ad(content),
             )
-        case ToolMessage(content, error, tool_call_id, tool_call, role, history):
+        case ToolMessage(content, error, tool_call_id, tool_call, history, role):
             tool_message = ad.ChatToolResultMessage(
                 tool_call=function_call_to_ad(tool_call),
                 content=content_to_ad(content),

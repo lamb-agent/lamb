@@ -44,11 +44,24 @@ def make_function(
     )
 
 
+def user_msg(msg: str) -> types.UserMessage:
+    return types.UserMessage(msg)
+
+
 def tool_call_msg(call: types.FunctionCall) -> types.AssistantMessage:
     return types.AssistantMessage(
         "",
         [call],
     )
+
+
+def tool_response(
+    content: str,
+    error: str | None,
+    call: types.FunctionCall,
+    history: list[types.ChatMessage] = [],  # noqa: B006
+) -> types.ToolMessage:
+    return types.ToolMessage(content, error, call.id, call, history)
 
 
 def assistant_msg(msg: str) -> types.AssistantMessage:
@@ -297,59 +310,79 @@ def test_meeting_notes_attack_lamb() -> None:
     assert "IFC violation detected" in response
 
 
-def prepare_article(
+def prepare_pr(
     env: "SlackEnvironment",
     channel: str,
     link: str,
+    response: str,
 ) -> tuple[
+    types.FunctionCall,
     types.FunctionCall,
     types.FunctionCall,
     types.FunctionCall,
 ]:
     env.slack.channels.append(channel)
-    env.web.web_content[link] = (
-        """Lambs are defined as young sheep under 12 months of age or those not having any permanent incisors in wear."""
-    )
+    env.web.web_content[link] = """
+>>>>
+Lambs are defined as young sheep under 12 months of age.
+<<<<
+Lambs are defined as young sheep under 12 months of age or those not having any permanent incisors in wear.
+"""  # noqa: E501
     env.slack.channel_inbox[channel] = [
         slack.Message(
             sender="Alice",
             recipient=channel,
-            body=f"Hej, this article on lambs was very interesting: {link}",
+            body=f"Hej, can someone pls review my PR: {link}",
         )
     ]
     read_channel = types.FunctionCall(
         "read_channel_messages",
-        {"channel": f"{channel}"},
+        {"channel": channel},
         "0",
     )
-    query_article = types.FunctionCall(
+    query_review = types.FunctionCall(
         "query_llm",
         {
-            "prompt": "Summarise the article that Alice sent:\n <read_channel_messages_0/>"
+            "prompt": "Please do the PR review requested by Alice:\n <read_channel_messages_0/>"  # noqa: E501
         },
         "1",
     )
-    get_article = types.FunctionCall("get_webpage", {"url": f"{link}"}, "2")
-    return read_channel, query_article, get_article
-
-
-def test_article_lamb() -> None:
-    runtime, env = slack_rt()
-    channel = "news"
-    link = "www.sciencedirect.com/topics/agricultural-and-biological-sciences/lamb"
-
-    read_channel, query_article, get_article = prepare_article(env, channel, link)
-    user_prompt = (
-        f"""Summarise the article that Alice shared in the channel "{channel}"."""
+    get_pr = types.FunctionCall("get_webpage", {"url": link}, "2")
+    post_review = types.FunctionCall(
+        "post_webpage",
+        {
+            "url": link,
+            "content": response,
+        },
+        "2",
     )
-    assistant_response = "The article defines lamb as young sheep."
+    return read_channel, query_review, get_pr, post_review
+
+
+def test_pr_lamb() -> None:
+    runtime, env = slack_rt()
+    channel = "reviews"
+    link = "www.github.com/Alice/lamb/pull/17"
+    query_response = "LGTM"
+    user_prompt = (
+        f"""Do the PR review that Alice requested in the channel "{channel}"."""
+    )
+    user_response = "I have reviewed the PR."
+
+    read_channel, query_review, get_pr, post_review = prepare_pr(
+        env,
+        channel,
+        link,
+        query_response,
+    )
 
     messages = [
         tool_call_msg(read_channel),
-        tool_call_msg(query_article),
-        tool_call_msg(get_article),
-        assistant_msg(assistant_response),
-        assistant_msg("<query_llm_0/>"),
+        tool_call_msg(query_review),
+        tool_call_msg(get_pr),
+        assistant_msg(query_response),
+        tool_call_msg(post_review),
+        assistant_msg(user_response),
     ]
 
     a = Agent.lamb_no_ifc(
@@ -358,27 +391,26 @@ def test_article_lamb() -> None:
         env,
     )
     history, _ = a.prompt(user_prompt)
-    assert history[-1].content == assistant_response
+    assert history[-1].content == user_response
 
 
-def test_article_dual() -> None:
+def test_pr_dual() -> None:
     runtime, env = slack_rt()
-    channel = "news"
-    link = "www.sciencedirect.com/topics/agricultural-and-biological-sciences/lamb"
-
-    read_channel, query_article, _ = prepare_article(env, channel, link)
+    channel = "reviews"
+    link = "www.github.com/Alice/lamb/pull/17"
     user_prompt = (
-        f"""Summarise the article that Alice shared in the channel "{channel}"."""
+        f"""Do the PR review that Alice requested in the channel "{channel}"."""
     )
-    assistant_response = (
-        f"Unfortunately, I can't read the article behind the link {link}"
-    )
+    query_response = f"Alice requested a review for the PR {link}. But I don't have access to web pages."  # noqa: E501
+    user_response = "Here you have your review: <query_llm_0/>"
+
+    read_channel, query_review, _, _ = prepare_pr(env, channel, link, query_response)
 
     messages = [
         tool_call_msg(read_channel),
-        tool_call_msg(query_article),
-        assistant_msg(assistant_response),
-        assistant_msg("<query_llm_0/>"),
+        tool_call_msg(query_review),
+        assistant_msg(query_response),
+        assistant_msg(user_response),
     ]
 
     a = Agent.dual(
@@ -387,4 +419,4 @@ def test_article_dual() -> None:
         env,
     )
     history, _ = a.prompt(user_prompt)
-    assert history[-1].content == assistant_response
+    assert history[-1].content == user_response.replace("<query_llm_0/>", query_response)
