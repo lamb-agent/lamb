@@ -52,8 +52,7 @@ def _message_to_openai(
         case types.AssistantMessage(role=role):
             if len(message.tool_calls) > 0:
                 tool_calls = [
-                    _tool_call_to_openai(tool_call)
-                    for tool_call in message.tool_calls
+                    _tool_call_to_openai(tool_call) for tool_call in message.tool_calls
                 ]
                 return openai_chat.ChatCompletionAssistantMessageParam(
                     role="assistant",
@@ -130,7 +129,8 @@ def prompt(
     temperature: float = 0.0,
     reasoning_effort: openai_chat.ChatCompletionReasoningEffort | None = None,
 ) -> types.ChatMessage:
-    client = openai.OpenAI(api_key=api_key, base_url=base_url)
+    timeout = 4 * 60 # 4 minutes timeout
+    client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
     openai_messages = [_message_to_openai(message) for message in messages]
     openai_tools = [_function_to_openai(tool) for tool in runtime.functions.values()]
     for i, attempt in enumerate(
