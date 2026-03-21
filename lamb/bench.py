@@ -17,6 +17,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from lamb import agent, logging
 
+# TODO: timestamp individual test runs
+
 
 class TaskResults(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -202,7 +204,7 @@ def run_task(
         if with_attack:
             logging.info(
                 "Skipping task"
-                " '{user_task.ID}' with '{injection_task.ID}'"
+                f" '{user_task.ID}' with '{injection_task.ID}'"
                 " because it was already run."
             )
         else:
