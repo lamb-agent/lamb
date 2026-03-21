@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 import time
 import typing
 from dataclasses import dataclass
@@ -23,6 +25,9 @@ class OllamaModel(Enum):
     MISTRAL_LARGE_123B = "mistral-large:123b"
     GRANITE4 = "granite4:3b"
 
+class OpenAIModel(Enum):
+    GPT5_MINI = "gpt-5-mini-2025-08-07"
+
 
 class Llm(typing.Protocol):
     def prompt(
@@ -38,9 +43,9 @@ class LiveLlm(Llm):
     """A stateless LLM."""
 
     model: str
-    base_url: str
     api_key: str
     reasoning: openai_types.ChatCompletionReasoningEffort
+    base_url: str | None = None
 
     def prompt(
         self,
@@ -66,11 +71,11 @@ class LiveLlm(Llm):
     @staticmethod
     def ollama_openai(
         model: OllamaModel,
-        reasoning: openai_types.ChatCompletionReasoningEffort = None,
+        reasoning: openai_types.ChatCompletionReasoningEffort = "high",
     ) -> "LiveLlm":
         return LiveLlm(
             model.value,
-            "http://localhost:11434/v1",
+            base_url="http://localhost:11434/v1",
             api_key="ollama",
             reasoning=reasoning,
         )
@@ -82,8 +87,24 @@ class LiveLlm(Llm):
     ) -> "LiveLlm":
         return LiveLlm(
             model.value,
-            "http://localhost:11434",
+            base_url="http://localhost:11434",
             api_key="ollama",
+            reasoning=reasoning,
+        )
+
+    @staticmethod
+    def openai(
+        model: OpenAIModel,
+        reasoning: openai_types.ChatCompletionReasoningEffort = "high",
+    ) -> "LiveLlm":
+        env_var = "LAMB_OPENAI_API_KEY"
+        api_key = os.environ.get(env_var)
+        if api_key is None:
+            print(f"{env_var} must be set!", file=sys.stderr)
+            sys.exit(1)
+        return LiveLlm(
+            model.value,
+            api_key=api_key,
             reasoning=reasoning,
         )
 
