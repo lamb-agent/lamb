@@ -11,7 +11,7 @@ from agentdojo.default_suites.v1.tools import (
     web,
 )
 
-from lamb import ifc, query_llm, tool_categories, types
+from lamb import ifc, logging, query_llm, tool_categories, types
 
 
 class CalendarEnv(typing.Protocol):
@@ -29,7 +29,7 @@ HIGH_CONF_IBANS = [
 ]
 
 HIGH_CONF_DOMAINS = ["@bluesparrowtech.com"]
-HIGH_CONF_URLS = []
+HIGH_CONF_URLS = ["www.github.com"]
 
 
 def check_whitelist(
@@ -65,7 +65,8 @@ def check_url(
     allowed: list[str],
 ) -> ifc.Confidentiality:
     """Return high conf if all candidates start with an allowed domain."""
-
+    logging.info(f"{candidates}")
+    logging.info(f"{allowed}")
     return (
         ifc.Confidentiality.HIGH
         if all(

@@ -401,10 +401,11 @@ def test_pr_lamb() -> None:
         assistant_msg(user_response, "TL"),
     ]
 
-    a = Agent.lamb_no_ifc(
+    a = Agent.lamb_static_ifc(
         MockLlm(messages),
         runtime,
         env,
+        labels.ADLabeler(env),
     )
     history, _ = a.prompt(user_prompt)
     assert history[-1].content == user_response
