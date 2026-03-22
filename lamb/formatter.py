@@ -17,23 +17,25 @@ class VariableFormatter(types.Formatter):
     tools: dict[str, int]
     hide_result: Callable[
         [rt.Function, rt.FunctionReturnType, str],
-        tuple[bool, ifc.IFCLabel, ifc.IFCLabel],
+        tuple[bool, ifc.IFCLabel | None, ifc.IFCLabel | None],
     ]
     check_call: Callable[
-        [rt.Function, types.Args, types.Args], tuple[ifc.IFCLabel, ifc.IFCLabel]
+        [rt.Function, types.Args, types.Args],
+        tuple[ifc.IFCLabel | None, ifc.IFCLabel | None],
     ]
 
     def __init__(
         self,
         hide_result: Callable[
             [rt.Function, rt.FunctionReturnType, str],
-            tuple[bool, ifc.IFCLabel, ifc.IFCLabel],
+            tuple[bool, ifc.IFCLabel | None, ifc.IFCLabel | None],
         ],
         check_call: Callable[
-            [rt.Function, types.Args, types.Args], tuple[ifc.IFCLabel, ifc.IFCLabel]
+            [rt.Function, types.Args, types.Args],
+            tuple[ifc.IFCLabel | None, ifc.IFCLabel | None],
         ] = lambda _tool, _args_hidden, _args_expanded: (
-            ifc.IFCLabel.top(),
-            ifc.IFCLabel.top(),
+            None,
+            None,
         ),
     ) -> None:
         self.var_vals = {}
@@ -66,7 +68,11 @@ class VariableFormatter(types.Formatter):
             self.tools[tool_name] += 1
             return next_var, str(source_label), str(sink_label)
 
-        return result_str, str(source_label), str(sink_label)
+        return (
+            result_str,
+            str(source_label) if source_label else "",
+            str(sink_label) if source_label else "",
+        )
 
     def expand(
         self,
@@ -108,7 +114,11 @@ class VariableFormatter(types.Formatter):
         source_label, sink_label = self.check_call(tool, args, expanded_args)
         # attach ifc label as extra argument for query_llm functions
         expanded_args["ifc_label"] = str(source_label)
-        return expanded_args, str(source_label), str(sink_label)
+        return (
+            expanded_args,
+            str(source_label) if source_label else "",
+            str(sink_label) if source_label else "",
+        )
 
     @staticmethod
     def none() -> "VariableFormatter":
@@ -117,8 +127,8 @@ class VariableFormatter(types.Formatter):
         return VariableFormatter(
             hide_result=lambda _tool, _result, _var: (
                 False,
-                ifc.IFCLabel.UL,
-                ifc.IFCLabel.UL,
+                None,
+                None,
             )
         )
 

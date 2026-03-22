@@ -176,7 +176,7 @@ def format_label(msg: types.ChatMessage) -> str:
             call_sink=call_sink,
         ) if call_source != "" and call_sink != "":
             return f"({call_source}⊑{call_sink})"
-        case types.UserMessage(label=label):
+        case types.UserMessage(label=label) if label != "":
             return f"({label})"
         case _:
             return ""
