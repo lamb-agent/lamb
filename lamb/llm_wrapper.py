@@ -105,6 +105,7 @@ def _openai_to_assistant_message(
     return types.AssistantMessage(
         content=_assistant_message_to_content(message),
         tool_calls=tool_calls,
+        label="", # TODO: ?
     )
 
 

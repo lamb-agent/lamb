@@ -30,6 +30,10 @@ class ToolExec:
                         content="",
                         tool_call_id=tool_call.id,
                         tool_call=tool_call,
+                        call_source="",
+                        call_sink="",
+                        result_source="",
+                        result_sink="",
                         error=f"Invalid tool {tool_call.function} provided.",
                     )
                 )
@@ -42,7 +46,7 @@ class ToolExec:
 
             tool = self.runtime.get_function(tool_call.function)
             try:
-                args = self.formatter.expand(tool, tool_call.args)
+                args, call_source, call_sink = self.formatter.expand(tool, tool_call.args)
             except pydantic.ValidationError as e:
                 tool_call_results.append(
                     types.ToolMessage(
@@ -50,6 +54,10 @@ class ToolExec:
                         error=f"ValidationError: {e}",
                         tool_call_id=tool_call.id,
                         tool_call=tool_call,
+                        call_source="",
+                        call_sink="",
+                        result_source="",
+                        result_sink="",
                     )
                 )
                 continue
@@ -62,6 +70,10 @@ class ToolExec:
                     tool_call_id=tool_call.id,
                     tool_call=tool_call,
                     error=error,
+                    call_source=call_source,
+                    call_sink=call_sink,
+                    result_source="",
+                    result_sink="",
                 )
             else:
                 history: list[types.ChatMessage] | None = None
@@ -70,7 +82,7 @@ class ToolExec:
                     history = tool_call_result.history
                     # the response is extracted automatically by the stringify method
                 try:
-                    formatted_tool_call_result = self.formatter.format(
+                    formatted_tool_call_result, result_source, result_sink = self.formatter.format(
                         tool,
                         tool_call_result,
                     )
@@ -80,6 +92,10 @@ class ToolExec:
                         tool_call=tool_call,
                         error=error,
                         history=history,
+                        call_source=call_source,
+                        call_sink=call_sink,
+                        result_source=result_source,
+                        result_sink=result_sink,
                     )
                 except ifc.IFCError as e:
                     result = types.ToolMessage(
@@ -87,6 +103,10 @@ class ToolExec:
                         tool_call_id=tool_call.id,
                         tool_call=tool_call,
                         error=str(e),
+                        call_source=call_source,
+                        call_sink=call_sink,
+                        result_source="",
+                        result_sink="",
                     )
                     result["history"] = history  # type: ignore
             tool_call_results.append(result)

@@ -60,7 +60,11 @@ def log_message(identity: types.Identity, message: types.ChatMessage) -> None:
     match logger.level:
         case logging.DEBUG:
             # log entire message instance
-            logger.debug(format_chat_message(identity, message.role, f"{message}"))
+            logger.debug(
+                format_chat_message(
+                    identity, format_label(message), message.role, f"{message}"
+                )
+            )
         case _:
             log: str
             match message:
@@ -71,16 +75,31 @@ def log_message(identity: types.Identity, message: types.ChatMessage) -> None:
                         if message.content != "":
                             message.content += "\n\t"
                         content += "\n".join(tool_calls)
-                    log = format_chat_message(identity, message.role, content)
+                    log = format_chat_message(
+                        identity,
+                        format_label(message),
+                        message.role,
+                        content,
+                    )
                 case types.ToolMessage():
                     content = message.content
                     if message.error:
                         if content != "":
                             content += "\n\t"
                         content += message.error
-                    log = format_chat_message(identity, message.role, content)
+                    log = format_chat_message(
+                        identity,
+                        format_label(message),
+                        message.role,
+                        content,
+                    )
                 case types.UserMessage():
-                    log = format_chat_message(identity, message.role, message.content)
+                    log = format_chat_message(
+                        identity,
+                        format_label(message),
+                        message.role,
+                        message.content,
+                    )
                 case _:
                     typing.assert_never(message)
             logger.info(log)
@@ -93,7 +112,12 @@ def log_messages(
         log_message(identity, message)
 
 
-def format_chat_message(identity: types.Identity, role: types.Role, text: str) -> str:
+def format_chat_message(
+    identity: types.Identity,
+    label: str,
+    role: types.Role,
+    text: str,
+) -> str:
     identity_symbol: str
     match identity:
         case types.Identity.SINGLE:
@@ -118,7 +142,9 @@ def format_chat_message(identity: types.Identity, role: types.Role, text: str) -
             role_colour = "cyan"
         case _:
             typing.assert_never(role)
-    return f"{identity_symbol}{role_symbol} [{role_colour}]{text}[/{role_colour}]"
+    return (
+        f"{identity_symbol}{role_symbol}{label} [{role_colour}]{text}[/{role_colour}]"
+    )
 
 
 def format_tool_call(call: types.FunctionCall) -> str:
@@ -127,3 +153,30 @@ def format_tool_call(call: types.FunctionCall) -> str:
     if len(args) > 0:
         arg_string += "\n\t\t" + "\n\t\t".join(args)
     return f"{call.function}({arg_string})"
+
+
+def format_label(msg: types.ChatMessage) -> str:
+    match msg:
+        case types.AssistantMessage(label=label) if label != "":
+            return f"({label})"
+        case types.ToolMessage(
+            call_source=call_source,
+            call_sink=call_sink,
+            result_source=result_source,
+            result_sink=result_sink,
+        ) if (
+            call_source != ""
+            and call_sink != ""
+            and result_source != ""
+            and result_sink != ""
+        ):
+            return f"({call_source}⊑{call_sink},{result_source}⊑{result_sink})"
+        case types.ToolMessage(
+            call_source=call_source,
+            call_sink=call_sink,
+        ) if call_source != "" and call_sink != "":
+            return f"({call_source}⊑{call_sink})"
+        case types.UserMessage(label=label):
+            return f"({label})"
+        case _:
+            return ""

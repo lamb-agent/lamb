@@ -156,7 +156,7 @@ class IFCChecker:
 
     def hide_result(
         self, tool: rt.Function, result: rt.FunctionReturnType, var: str
-    ) -> bool:
+    ) -> tuple[bool, IFCLabel, IFCLabel]:
         source = self.labeler.tool_source_label(tool, result)
         sink = self.model_context
         do_hide = not source.permitted_flow(sink)
@@ -175,14 +175,14 @@ class IFCChecker:
 
         if do_hide:
             self.var_labels[var] = source
-        return do_hide
+        return do_hide, source, self.model_context
 
     def check(
         self,
         tool: rt.Function,
         hidden_args: types.Args,
         expanded_args: types.Args,
-    ) -> IFCLabel:
+    ) -> tuple[IFCLabel, IFCLabel]:
         sink = self.labeler.tool_sink_label(tool, expanded_args)
         total_source = self.model_context
         for name, arg in hidden_args.items():
@@ -195,7 +195,7 @@ class IFCChecker:
                 raise IFCError(
                     f"The argument `{name}` contains a variable that violates the IFC policies"  # noqa: E501
                 )
-        return total_source
+        return total_source, sink
 
     def find_vars(self, arg: types.FunctionCallArgTypes) -> set[str]:
         """Find a subset of variables from the given set of variables

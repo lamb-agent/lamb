@@ -21,12 +21,12 @@ class Formatter(Protocol):
         self,
         tool: rt.Function,
         result: rt.FunctionReturnType,
-    ) -> str: ...
+    ) -> tuple[str, str, str]: ... # TODO: update label type
     def expand(
         self,
         tool: rt.Function,
         args: Args,
-    ) -> Args: ...
+    ) -> tuple[Args, str, str]: ...
 
 
 class Identity(Enum):
@@ -119,6 +119,7 @@ def content_to_ad(content: str) -> list[ad.MessageContentBlock]:
 @dataclass
 class UserMessage:
     content: str
+    label: str = "TL"
     role: typing.Literal["user"] = "user"
 
 
@@ -126,6 +127,7 @@ class UserMessage:
 class AssistantMessage:
     content: str
     tool_calls: list[FunctionCall]
+    label: str # TODO: update those to ifc label type
     role: typing.Literal["assistant"] = "assistant"
 
 
@@ -135,6 +137,10 @@ class ToolMessage:
     error: str | None
     tool_call_id: str
     tool_call: FunctionCall
+    call_source: str
+    call_sink: str
+    result_source: str
+    result_sink: str
     history: list["ChatMessage"] | None = None
     role: typing.Literal["tool"] = "tool"
 
@@ -149,13 +155,26 @@ def message_to_ad(message: ChatMessage) -> ad.ChatMessage:
                 role=role,
                 content=content_to_ad(content),
             )
-        case AssistantMessage(content, tool_calls, role):
-            return ad.ChatAssistantMessage(
+        case AssistantMessage(content, tool_calls, label, role):
+            msg = ad.ChatAssistantMessage(
                 role=role,
                 tool_calls=[function_call_to_ad(call) for call in tool_calls],
                 content=content_to_ad(content),
             )
-        case ToolMessage(content, error, tool_call_id, tool_call, history, role):
+            msg["label"] = label  # type: ignore
+            return msg
+        case ToolMessage(
+            content,
+            error,
+            tool_call_id,
+            tool_call,
+            call_source,
+            call_sink,
+            result_source,
+            result_sink,
+            history,
+            role,
+        ):
             tool_message = ad.ChatToolResultMessage(
                 tool_call=function_call_to_ad(tool_call),
                 content=content_to_ad(content),
@@ -163,9 +182,13 @@ def message_to_ad(message: ChatMessage) -> ad.ChatMessage:
                 tool_call_id=tool_call_id,
                 error=error,
             )
+            tool_message["call_source"] = call_source # type: ignore
+            tool_message["call_sink"] = call_sink # type: ignore
+            tool_message["result_source"] = result_source # type: ignore
+            tool_message["result_sink"] = result_sink # type: ignore
             if history:
                 # it's just a dict, we can append the history for logging
-                tool_message["history"] = history # type: ignore
+                tool_message["history"] = history  # type: ignore
             return tool_message
         case _:
             typing.assert_never(message)
@@ -180,7 +203,7 @@ def make_user_prompt(prompt: str) -> ChatMessage:
 
 
 def make_assistant_prompt(prompt: str) -> ChatMessage:
-    return AssistantMessage(prompt, [])
+    return AssistantMessage(prompt, [], "") # TODO: proper value
 
 
 def get_response(history: list[ChatMessage]) -> str:

@@ -48,10 +48,11 @@ def user_msg(msg: str) -> types.UserMessage:
     return types.UserMessage(msg)
 
 
-def tool_call_msg(call: types.FunctionCall) -> types.AssistantMessage:
+def tool_call_msg(call: types.FunctionCall, label: str) -> types.AssistantMessage:
     return types.AssistantMessage(
         "",
         [call],
+        label,
     )
 
 
@@ -59,20 +60,31 @@ def tool_response(
     content: str,
     error: str | None,
     call: types.FunctionCall,
+    call_source: str,
+    call_sink: str,
+    result_source: str,
+    result_sink: str,
     history: list[types.ChatMessage] = [],  # noqa: B006
 ) -> types.ToolMessage:
-    return types.ToolMessage(content, error, call.id, call, history)
-
-
-def assistant_msg(msg: str) -> types.AssistantMessage:
-    return types.AssistantMessage(
-        msg,
-        [],
+    return types.ToolMessage(
+        content,
+        error,
+        call.id,
+        call,
+        call_source,
+        call_sink,
+        result_source,
+        result_sink,
+        history,
     )
 
 
+def assistant_msg(msg: str, label: str) -> types.AssistantMessage:
+    return types.AssistantMessage(msg, [], label)
+
+
 def test_single_empty() -> None:
-    messages: list[types.ChatMessage] = [types.AssistantMessage("content", [])]
+    messages: list[types.ChatMessage] = [types.AssistantMessage("content", [], "")]
     runtime, env = empty_rt()
     a = Agent.single(MockLlm(messages), runtime, env)
     history, label = a.prompt("")
@@ -84,8 +96,8 @@ def test_single_tool_call() -> None:
     runtime, env = workspace_rt()
     call_0 = types.FunctionCall("get_current_day", {}, "0")
     messages: list[types.ChatMessage] = [
-        tool_call_msg(call_0),
-        assistant_msg("content"),
+        tool_call_msg(call_0, ""),
+        assistant_msg("content", ""),
     ]
     a = Agent.single(MockLlm(messages), runtime, env)
     history, label = a.prompt("")
@@ -95,6 +107,10 @@ def test_single_tool_call() -> None:
         error=None,
         tool_call_id=call_0.id,
         tool_call=call_0,
+        call_source="UH",
+        call_sink="UH",
+        result_source="UH",
+        result_sink="UH",
     )
     assert history[-1] == messages[-1]
     assert label == ifc.IFCLabel.UH
@@ -109,8 +125,8 @@ def test_slack_invite() -> None:
         "0",
     )
     messages: list[types.ChatMessage] = [
-        tool_call_msg(call_0),
-        assistant_msg("content"),
+        tool_call_msg(call_0, "TL"),
+        assistant_msg("content", ""),
     ]
     a = Agent.lamb_static_ifc(
         MockLlm(messages),
@@ -137,8 +153,8 @@ def test_argument_validation() -> None:
         "0",
     )
     messages: list[types.ChatMessage] = [
-        tool_call_msg(call_0),
-        assistant_msg("content"),
+        tool_call_msg(call_0, ""),
+        assistant_msg("content", ""),
     ]
     a = Agent.lamb_static_ifc(
         MockLlm(messages),
@@ -233,13 +249,13 @@ def prepare_meeting_notes_history(
         "4",
     )
     messages: list[types.ChatMessage] = [
-        tool_call_msg(list_files),
-        tool_call_msg(query_doc_id),
-        assistant_msg(secret_file.id_),
-        tool_call_msg(query_email_address),
-        assistant_msg(email),
-        tool_call_msg(send_email),
-        assistant_msg("<send_email_0/>"),
+        tool_call_msg(list_files, "TL"),
+        tool_call_msg(query_doc_id, "TL"),
+        assistant_msg(secret_file.id_, "UH"),
+        tool_call_msg(query_email_address, "TL"),
+        assistant_msg(email, "UL"),
+        tool_call_msg(send_email, "TL"),
+        assistant_msg("<send_email_0/>", "TL"),
     ]
     return messages
 
@@ -377,12 +393,12 @@ def test_pr_lamb() -> None:
     )
 
     messages = [
-        tool_call_msg(read_channel),
-        tool_call_msg(query_review),
-        tool_call_msg(get_pr),
-        assistant_msg(query_response),
-        tool_call_msg(post_review),
-        assistant_msg(user_response),
+        tool_call_msg(read_channel, "TL"),
+        tool_call_msg(query_review, "TL"),
+        tool_call_msg(get_pr, "UH"),
+        assistant_msg(query_response, "UH"),
+        tool_call_msg(post_review, "TL"),
+        assistant_msg(user_response, "TL"),
     ]
 
     a = Agent.lamb_no_ifc(
@@ -407,10 +423,10 @@ def test_pr_dual() -> None:
     read_channel, query_review, _, _ = prepare_pr(env, channel, link, query_response)
 
     messages = [
-        tool_call_msg(read_channel),
-        tool_call_msg(query_review),
-        assistant_msg(query_response),
-        assistant_msg(user_response),
+        tool_call_msg(read_channel, ""),
+        tool_call_msg(query_review, ""),
+        assistant_msg(query_response, ""),
+        assistant_msg(user_response, ""),
     ]
 
     a = Agent.dual(
@@ -445,9 +461,9 @@ def test_pr_fides() -> None:
 
     history = [
         user_msg(user_prompt),
-        tool_call_msg(read_channel),
-        tool_response(variable, None, read_channel),
-        tool_call_msg(inspect),
+        tool_call_msg(read_channel, "TL"),
+        tool_response(variable, None, read_channel, "TL", "UH", "UH", "TL"),
+        tool_call_msg(inspect, "TL"),
         tool_response(
             """
 - body: 'Hej, can someone pls review my PR: www.github.com/Alice/lamb/pull/17'
@@ -456,8 +472,12 @@ def test_pr_fides() -> None:
 """,
             None,
             inspect,
+            "TL",
+            "UH",
+            "UH",
+            "UH",
         ),
-        tool_call_msg(get_pr),
+        tool_call_msg(get_pr, "UH"),
         tool_response(
             """
 >>>>
@@ -467,8 +487,12 @@ Lambs are defined as young sheep under 12 months of age or those not having any 
         """,
             None,
             get_pr,
+            "UH",
+            "UH",
+            "UH",
+            "UH",
         ),
-        assistant_msg(user_response),
+        assistant_msg(user_response, "UH"),
     ]
 
     logging.log_messages(types.Identity.PRIVILEGED, history)

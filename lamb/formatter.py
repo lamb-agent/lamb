@@ -15,15 +15,26 @@ class VariableFormatter(types.Formatter):
 
     var_vals: dict[str, str]
     tools: dict[str, int]
-    hide_result: Callable[[rt.Function, rt.FunctionReturnType, str], bool]
-    check_call: Callable[[rt.Function, types.Args, types.Args], ifc.IFCLabel]
+    hide_result: Callable[
+        [rt.Function, rt.FunctionReturnType, str],
+        tuple[bool, ifc.IFCLabel, ifc.IFCLabel],
+    ]
+    check_call: Callable[
+        [rt.Function, types.Args, types.Args], tuple[ifc.IFCLabel, ifc.IFCLabel]
+    ]
 
     def __init__(
         self,
-        hide_result: Callable[[rt.Function, rt.FunctionReturnType, str], bool],
+        hide_result: Callable[
+            [rt.Function, rt.FunctionReturnType, str],
+            tuple[bool, ifc.IFCLabel, ifc.IFCLabel],
+        ],
         check_call: Callable[
-            [rt.Function, types.Args, types.Args], ifc.IFCLabel
-        ] = lambda _tool, _args_hidden, _args_expanded: ifc.IFCLabel.top(),
+            [rt.Function, types.Args, types.Args], tuple[ifc.IFCLabel, ifc.IFCLabel]
+        ] = lambda _tool, _args_hidden, _args_expanded: (
+            ifc.IFCLabel.top(),
+            ifc.IFCLabel.top(),
+        ),
     ) -> None:
         self.var_vals = {}
         self.tools = {}
@@ -34,7 +45,7 @@ class VariableFormatter(types.Formatter):
         self,
         tool: rt.Function,
         result: rt.FunctionReturnType,
-    ) -> str:
+    ) -> tuple[str, str, str]:
         tool_name = tool.name
 
         def get_next_var() -> str:
@@ -49,18 +60,19 @@ class VariableFormatter(types.Formatter):
 
         result_str = _stringify_result(result)
 
-        if self.hide_result(tool, result, next_var):
+        hide, source_label, sink_label = self.hide_result(tool, result, next_var)
+        if hide:
             self.var_vals[next_var] = result_str
             self.tools[tool_name] += 1
-            return next_var
+            return next_var, str(source_label), str(sink_label)
 
-        return result_str
+        return result_str, str(source_label), str(sink_label)
 
     def expand(
         self,
         tool: rt.Function,
         args: types.Args,
-    ) -> types.Args:
+    ) -> tuple[types.Args, str, str]:
         """Replace variable references in tool call args with their respective value.
 
         Assuming the arg is: "Summarize this: <variable1/>"
@@ -79,7 +91,7 @@ class VariableFormatter(types.Formatter):
                 case int() | float() | bool() | None:
                     return arg
                 case str():
-                    return replace_vars(arg).strip() # models love to append new lines
+                    return replace_vars(arg).strip()  # models love to append new lines
                 case list() if types.is_arg_list(arg):
                     return [expand_arg(item) for item in arg]
                 case dict() if types.is_arg_dict(arg):
@@ -93,16 +105,22 @@ class VariableFormatter(types.Formatter):
 
         expanded_args = {key: expand_arg(val) for key, val in args.items()}
         tool.parameters.model_validate(expanded_args)
-        source_label = self.check_call(tool, args, expanded_args)
+        source_label, sink_label = self.check_call(tool, args, expanded_args)
         # attach ifc label as extra argument for query_llm functions
         expanded_args["ifc_label"] = str(source_label)
-        return expanded_args
+        return expanded_args, str(source_label), str(sink_label)
 
     @staticmethod
     def none() -> "VariableFormatter":
         """Never hide variables."""
 
-        return VariableFormatter(hide_result=lambda _tool, _result, _var: False)
+        return VariableFormatter(
+            hide_result=lambda _tool, _result, _var: (
+                False,
+                ifc.IFCLabel.UH,
+                ifc.IFCLabel.UH,
+            )
+        )
 
     @staticmethod
     def integrity_based(query_llm: Callable | None = None) -> "VariableFormatter":
@@ -113,7 +131,13 @@ class VariableFormatter(types.Formatter):
 
         return VariableFormatter(
             # TODO: shouldn't we use result here as well?
-            hide_result=lambda tool, _result, _var: tool.run in untrusted_source_fns
+            hide_result=lambda tool, _result, _var: (
+                tool.run in untrusted_source_fns,
+                ifc.IFCLabel.UL
+                if tool.run in untrusted_source_fns
+                else ifc.IFCLabel.TL,
+                ifc.IFCLabel.TL,
+            )
         )
 
     @staticmethod

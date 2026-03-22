@@ -65,7 +65,12 @@ class Agent:
 
         def call_llm(messages: list[lamb.types.ChatMessage]) -> lamb.types.ChatMessage:
             try:
-                return tool_llm.prompt(messages, response_format)
+                response = tool_llm.prompt(messages, response_format)
+                if core.ifc_checker and isinstance(
+                    response, lamb.types.AssistantMessage
+                ):
+                    response.label = str(core.ifc_checker.model_context)
+                return response  # noqa: TRY300
             except openai.InternalServerError:
                 return lamb.types.make_assistant_prompt(
                     "The model failed to provide a correctly formatted tool call."
