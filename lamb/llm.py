@@ -83,7 +83,7 @@ class LiveLlm(Llm):
     @staticmethod
     def ollama_chat(
         model: OllamaModel,
-        reasoning: openai_types.ChatCompletionReasoningEffort = None,
+        reasoning: openai_types.ChatCompletionReasoningEffort = "high",
     ) -> "LiveLlm":
         return LiveLlm(
             model.value,
