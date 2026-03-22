@@ -44,7 +44,7 @@ def make_function(
     )
 
 
-def user_msg(msg: str, label) -> types.UserMessage:
+def user_msg(msg: str, label: str) -> types.UserMessage:
     return types.UserMessage(msg, label)
 
 
@@ -79,7 +79,7 @@ def tool_response(
     )
 
 
-def assistant_msg(msg: str, label: str) -> types.AssistantMessage:
+def assistant_msg(msg: str, label: str = "") -> types.AssistantMessage:
     return types.AssistantMessage(msg, [], label)
 
 
@@ -97,7 +97,7 @@ def test_single_tool_call() -> None:
     call_0 = types.FunctionCall("get_current_day", {}, "0")
     messages: list[types.ChatMessage] = [
         tool_call_msg(call_0, ""),
-        assistant_msg("content", ""),
+        assistant_msg("content"),
     ]
     a = Agent.single(MockLlm(messages), runtime, env)
     history, label = a.prompt("")
@@ -126,7 +126,7 @@ def test_slack_invite() -> None:
     )
     messages: list[types.ChatMessage] = [
         tool_call_msg(call_0, "TL"),
-        assistant_msg("content", ""),
+        assistant_msg("content"),
     ]
     a = Agent.lamb_static_ifc(
         MockLlm(messages),
@@ -154,7 +154,7 @@ def test_argument_validation() -> None:
     )
     messages: list[types.ChatMessage] = [
         tool_call_msg(call_0, ""),
-        assistant_msg("content", ""),
+        assistant_msg("content"),
     ]
     a = Agent.lamb_static_ifc(
         MockLlm(messages),
@@ -251,11 +251,11 @@ def prepare_meeting_notes_history(
     messages: list[types.ChatMessage] = [
         tool_call_msg(list_files, "TL"),
         tool_call_msg(query_doc_id, "TL"),
-        assistant_msg(secret_file.id_, "UH"),
+        assistant_msg(secret_file.id_),
         tool_call_msg(query_email_address, "TL"),
-        assistant_msg(email, "UL"),
+        assistant_msg(email),
         tool_call_msg(send_email, "TL"),
-        assistant_msg("<send_email_0/>", "TL"),
+        assistant_msg("<send_email_0/>"),
     ]
     return messages
 
@@ -396,9 +396,9 @@ def test_pr_lamb() -> None:
         tool_call_msg(read_channel, "TL"),
         tool_call_msg(query_review, "TL"),
         tool_call_msg(get_pr, "UH"),
-        assistant_msg(query_response, "UH"),
+        assistant_msg(query_response),
         tool_call_msg(post_review, "TL"),
-        assistant_msg(user_response, "TL"),
+        assistant_msg(user_response),
     ]
 
     a = Agent.lamb_static_ifc(
@@ -426,8 +426,8 @@ def test_pr_dual() -> None:
     messages = [
         tool_call_msg(read_channel, ""),
         tool_call_msg(query_review, ""),
-        assistant_msg(query_response, ""),
-        assistant_msg(user_response, ""),
+        assistant_msg(query_response),
+        assistant_msg(user_response),
     ]
 
     a = Agent.dual(
@@ -493,7 +493,7 @@ Lambs are defined as young sheep under 12 months of age or those not having any 
             "UH",
             "UH",
         ),
-        assistant_msg(user_response, "UH"),
+        assistant_msg(user_response),
     ]
 
     logging.log_messages(types.Identity.PRIVILEGED, history)
