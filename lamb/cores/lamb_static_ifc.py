@@ -84,7 +84,10 @@ def p_high_make_core(
         functions_runtime=rt.FunctionsRuntime(
             filter_tools(
                 all_fns,
-                lamb.tool_categories.HIGH_CONF_SINK,
+                (
+                    lamb.tool_categories.HIGH_CONF_SINK
+                    | lamb.tool_categories.ARG_CONF_SINK
+                ),
             )
         ),
         env=env,

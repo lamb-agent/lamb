@@ -101,7 +101,10 @@ def p_make_core(
         """Restrict P-LLM tools to high conf sinks."""
 
         assert ifc_label == lamb.ifc.IFCLabel.TH, "P-LLM label must be TH."
-        high_conf_sink_fns = filter_tools(all_fns, lamb.tool_categories.HIGH_CONF_SINK)
+        high_conf_sink_fns = filter_tools(
+            all_fns,
+            (lamb.tool_categories.HIGH_CONF_SINK | lamb.tool_categories.ARG_CONF_SINK),
+        )
         query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
         query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(
             b_high_llm

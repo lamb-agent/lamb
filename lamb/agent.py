@@ -254,7 +254,9 @@ class Agent:
             all_fns,
             lamb.tool_categories.READ_ONLY
             & lamb.tool_categories.UNTRUSTED_SINK
-            & lamb.tool_categories.HIGH_CONF_SINK,
+            & (
+                lamb.tool_categories.HIGH_CONF_SINK | lamb.tool_categories.ARG_CONF_SINK
+            ),
         )
         # no nested llms
         runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(read_only_fns), env)
