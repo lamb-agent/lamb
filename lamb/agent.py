@@ -37,6 +37,7 @@ class Agent:
     system_prompt: str
     model: lamb.llm.Llm
     identity: lamb.types.Identity
+    initial_label: lamb.types.IFCLabelStr
     max_iters: int
 
     def __init__(
@@ -46,6 +47,7 @@ class Agent:
         identity: lamb.types.Identity,
         system_prompt: str,
         make_core: Callable[[], AgentCore],
+        initial_label: lamb.types.IFCLabelStr,
         max_iters: int = 10,
     ) -> None:
         self.name = name
@@ -53,6 +55,7 @@ class Agent:
         self.model = model
         self.identity = identity
         self.make_core = make_core
+        self.initial_label = initial_label
         self.max_iters = max_iters
 
     def assemble_controller(
@@ -103,7 +106,7 @@ class Agent:
         history = controller.loop(
             [
                 lamb.types.make_system_prompt(self.system_prompt),
-                lamb.types.make_user_prompt(user_prompt),
+                lamb.types.make_user_prompt(user_prompt, self.initial_label),
             ]
         )
         return history, core
@@ -146,6 +149,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
                 formatter=lamb.formatter.VariableFormatter.none(),
             ),
+            initial_label=""
         )
 
     @staticmethod
@@ -161,6 +165,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.empty(),
                 formatter=lamb.formatter.VariableFormatter.none(),
             ),
+            initial_label="",
             max_iters=2,  # we know it can't be more, because no tools are available
         )
 
@@ -189,6 +194,7 @@ class Agent:
                     query_llm.run
                 ),
             ),
+            initial_label="",
         )
 
     @staticmethod
@@ -212,6 +218,7 @@ class Agent:
                 labeler,
                 lamb.ifc.SecretHandling.DYNAMIC,
             ),
+            initial_label="TL"
         )
 
     @staticmethod
@@ -235,6 +242,7 @@ class Agent:
                 labeler,
                 lamb.ifc.SecretHandling.STATIC,
             ),
+            initial_label="TL"
         )
 
     @staticmethod
@@ -261,6 +269,7 @@ class Agent:
     def bounded(
         model: lamb.llm.Llm,
         system_prompt: str,
+        initial_label: lamb.types.IFCLabelStr,
         make_core: Callable[[], AgentCore],
     ) -> "Agent":
         return Agent(
@@ -269,6 +278,7 @@ class Agent:
             identity=lamb.types.Identity.BOUNDED,
             system_prompt=system_prompt,
             make_core=make_core,
+            initial_label=initial_label,
             max_iters=7,  # usually nothing useful comes of it, if it takes longer
         )
 
@@ -286,6 +296,7 @@ class Agent:
             identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(model, functions_runtime, env),
+            initial_label="",
         )
 
     @staticmethod
@@ -308,6 +319,7 @@ class Agent:
                 env,
                 labeler,
             ),
+            initial_label="TL",
         )
 
     @staticmethod
@@ -330,6 +342,7 @@ class Agent:
                 env,
                 labeler,
             ),
+            initial_label="TL",
         )
 
 

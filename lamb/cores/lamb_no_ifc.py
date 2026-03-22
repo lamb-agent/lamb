@@ -29,6 +29,7 @@ def make_core(
             ),
             formatter=lamb.formatter.VariableFormatter.none(),
         ),
+        initial_label="UH",
     )
     query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_llm)
     query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(b_llm)

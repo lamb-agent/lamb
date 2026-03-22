@@ -117,8 +117,8 @@ class VariableFormatter(types.Formatter):
         return VariableFormatter(
             hide_result=lambda _tool, _result, _var: (
                 False,
-                ifc.IFCLabel.UH,
-                ifc.IFCLabel.UH,
+                ifc.IFCLabel.UL,
+                ifc.IFCLabel.UL,
             )
         )
 

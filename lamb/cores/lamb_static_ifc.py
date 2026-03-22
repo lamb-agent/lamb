@@ -37,6 +37,7 @@ def b_low_make_core(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        initial_label="UH",
     )
     b_low_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     b_low_runtime = lamb.runtime.Runtime(
@@ -73,6 +74,7 @@ def p_high_make_core(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        initial_label="UH",
     )
     p_high_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     p_high_query_llm_structured = (
@@ -111,12 +113,14 @@ def p_low_make_core(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        initial_label="UH",
     )
 
     b_low_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_VARS_SYSTEM_PROMPT,
         make_core=lambda: b_low_make_core(model, functions_runtime, env, labeler),
+        initial_label="UL",
     )
 
     p_high_llm = Agent(
@@ -125,6 +129,7 @@ def p_low_make_core(
         identity=lamb.types.Identity.PRIVILEGED,
         system_prompt=lamb.prompts.P_HIGH_LLM_SYSTEM_PROMPT,
         make_core=lambda: p_high_make_core(model, functions_runtime, env, labeler),
+        initial_label="TH",
     )
 
     p_low_ifc_checker = lamb.ifc.IFCChecker(

@@ -44,8 +44,8 @@ def make_function(
     )
 
 
-def user_msg(msg: str) -> types.UserMessage:
-    return types.UserMessage(msg)
+def user_msg(msg: str, label) -> types.UserMessage:
+    return types.UserMessage(msg, label)
 
 
 def tool_call_msg(call: types.FunctionCall, label: str) -> types.AssistantMessage:
@@ -461,7 +461,7 @@ def test_pr_fides() -> None:
     inspect = types.FunctionCall("inspect", {"variable": variable}, "3")
 
     history = [
-        user_msg(user_prompt),
+        user_msg(user_prompt, "TL"),
         tool_call_msg(read_channel, "TL"),
         tool_response(variable, None, read_channel, "TL", "UH", "UH", "TL"),
         tool_call_msg(inspect, "TL"),

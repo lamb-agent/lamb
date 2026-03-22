@@ -67,14 +67,16 @@ def p_make_core(
     all_fns = list(functions_runtime.functions.values())
 
     b_low_llm = Agent.bounded(
-        model,
-        lamb.prompts.B_LLM_VARS_SYSTEM_PROMPT,
-        lambda: b_low_make_core(all_fns, env, labeler),
+        model=model,
+        system_prompt=lamb.prompts.B_LLM_VARS_SYSTEM_PROMPT,
+        make_core=lambda: b_low_make_core(all_fns, env, labeler),
+        initial_label="TL",
     )
     b_high_llm = Agent.bounded(
-        model,
-        lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        model=model,
+        system_prompt=lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        initial_label="TH",
     )
 
     def get_agent(ifc_label: str) -> Agent:

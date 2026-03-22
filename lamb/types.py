@@ -38,6 +38,8 @@ class Identity(Enum):
 
 type Role = typing.Literal["user", "assistant", "tool"]
 
+type IFCLabelStr = typing.Literal["TL", "UL", "TH", "UH", ""]
+
 
 @dataclass
 class FunctionCall:
@@ -119,7 +121,7 @@ def content_to_ad(content: str) -> list[ad.MessageContentBlock]:
 @dataclass
 class UserMessage:
     content: str
-    label: str = "TL"
+    label: str
     role: typing.Literal["user"] = "user"
 
 
@@ -195,11 +197,11 @@ def message_to_ad(message: ChatMessage) -> ad.ChatMessage:
 
 
 def make_system_prompt(prompt: str) -> ChatMessage:
-    return UserMessage(prompt)
+    return UserMessage(prompt, "TL")
 
 
-def make_user_prompt(prompt: str) -> ChatMessage:
-    return UserMessage(prompt)
+def make_user_prompt(prompt: str, label: str) -> ChatMessage:
+    return UserMessage(prompt, label)
 
 
 def make_assistant_prompt(prompt: str) -> ChatMessage:
