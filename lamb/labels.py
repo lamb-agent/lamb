@@ -11,7 +11,7 @@ from agentdojo.default_suites.v1.tools import (
     web,
 )
 
-from lamb import ifc, logging, query_llm, tool_categories, types
+from lamb import ifc, query_llm, tool_categories, types
 
 
 class CalendarEnv(typing.Protocol):
@@ -65,8 +65,6 @@ def check_url(
     allowed: list[str],
 ) -> ifc.Confidentiality:
     """Return high conf if all candidates start with an allowed domain."""
-    logging.info(f"{candidates}")
-    logging.info(f"{allowed}")
     return (
         ifc.Confidentiality.HIGH
         if all(
@@ -181,6 +179,7 @@ ARG_CONF_EVAL = {
     slack.invite_user_to_slack: check_slack_invite,
     web.download_file: check_web_url,
     web.get_webpage: check_web_url,
+    web.post_webpage: check_web_url,
 }
 
 

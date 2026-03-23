@@ -289,9 +289,7 @@ UNTRUSTED_SOURCE: set[typing.Callable] = {
 thus would taint the model, if revealed."""
 
 # TODO: Do we have any trusted sinks?
-TRUSTED_SINK: set[typing.Callable] = {
-    slack.invite_user_to_slack
-}
+TRUSTED_SINK: set[typing.Callable] = {slack.invite_user_to_slack}
 """Tools that must only be called with trusted (non-tainted) information."""
 UNTRUSTED_SINK: set[typing.Callable] = ALL - TRUSTED_SINK
 """Tools that can be called with untrusted (tainted) information."""
@@ -372,7 +370,6 @@ LOW_CONF_SOURCE: set[typing.Callable] = {
     user_account.update_password,
     web.get_webpage,
     web.download_file,
-    web.post_webpage,
     web.standardize_url,
 }
 """Tools that return low confidentiality (public) information.
@@ -444,10 +441,7 @@ HIGH_CONF_SINK: set[typing.Callable] = {
 """Tools whose usage is internal, thus not observable by the untrusted.
 This means no confidential information can be leaked."""
 
-LOW_CONF_SINK: set[typing.Callable] = {
-    # In a general domain, even GET queries would be considered a low conf sink
-    web.post_webpage,
-}
+LOW_CONF_SINK: set[typing.Callable] = set()
 """Tools whose usage is observable by anyone.
 Only public information may be sent."""
 
@@ -467,6 +461,7 @@ ARG_CONF_SINK: set[typing.Callable] = {
     slack.invite_user_to_slack,
     web.download_file,
     web.get_webpage,  # can carry arbitrary information in the URL
+    web.post_webpage,
 }
 """Tools where the sink (and its confidentiality level)
 is defined by the arguments of the call.
