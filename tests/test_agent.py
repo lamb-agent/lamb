@@ -14,6 +14,14 @@ if typing.TYPE_CHECKING:
     from agentdojo.default_suites.v1.slack.task_suite import SlackEnvironment
     from agentdojo.default_suites.v1.workspace.task_suite import WorkspaceEnvironment
 
+DIFF = """
+<<<<<<< HEAD
+Lambs are defined as young sheep under 12 months of age.
+=======
+Lambs are defined as young sheep under 12 months of age or those not having any permanent incisors in wear.
+>>>>>>> research
+"""
+
 
 def empty_rt() -> tuple[rt.FunctionsRuntime, rt.TaskEnvironment]:
     return rt.FunctionsRuntime([]), rt.TaskEnvironment()
@@ -338,12 +346,7 @@ def prepare_pr(
     types.FunctionCall,
 ]:
     env.slack.channels.append(channel)
-    env.web.web_content[link] = """
->>>>
-Lambs are defined as young sheep under 12 months of age.
-<<<<
-Lambs are defined as young sheep under 12 months of age or those not having any permanent incisors in wear.
-"""  # noqa: E501
+    env.web.web_content[link] = DIFF
     env.slack.channel_inbox[channel] = [
         slack.Message(
             sender="Alice",
@@ -480,12 +483,7 @@ def test_pr_fides() -> None:
         ),
         tool_call_msg(get_pr, "UH"),
         tool_response(
-            """
->>>>
-Lambs are defined as young sheep under 12 months of age.
-<<<<
-Lambs are defined as young sheep under 12 months of age or those not having any permanent incisors in wear.
-        """,
+            DIFF,
             None,
             get_pr,
             "UH",

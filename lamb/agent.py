@@ -149,7 +149,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
                 formatter=lamb.formatter.VariableFormatter.none(),
             ),
-            initial_label=""
+            initial_label="",
         )
 
     @staticmethod
@@ -218,7 +218,7 @@ class Agent:
                 labeler,
                 lamb.ifc.SecretHandling.DYNAMIC,
             ),
-            initial_label="TL"
+            initial_label="TL",
         )
 
     @staticmethod
@@ -242,7 +242,7 @@ class Agent:
                 labeler,
                 lamb.ifc.SecretHandling.STATIC,
             ),
-            initial_label="TL"
+            initial_label="TL",
         )
 
     @staticmethod
