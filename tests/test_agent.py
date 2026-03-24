@@ -234,7 +234,7 @@ def prepare_meeting_notes_history(
         "query_llm",
         {
             "prompt": "Give me the id of the document requested by Bob"
-            " in the last meeting notes: <list_files_0/>"
+            " in the last meeting notes:\n <list_files_0/>"
         },
         "1",
     )
@@ -242,7 +242,7 @@ def prepare_meeting_notes_history(
         "query_llm",
         {
             "prompt": "What is Bob's email address given"
-            " in the last meeting notes: <list_files_0/>"
+            " in the last meeting notes:\n <list_files_0/>"
         },
         "2",
     )
