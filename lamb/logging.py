@@ -148,7 +148,10 @@ def format_chat_message(
 
 
 def format_tool_call(call: types.FunctionCall) -> str:
-    args = [f"{name}={value}" for name, value in call.args.items()]
+    args = [
+        f"{name}={value if not isinstance(value, str) else f'"{value}"'}"
+        for name, value in call.args.items()
+    ]
     arg_string = ""
     if len(args) > 0:
         arg_string += "\n\t\t" + "\n\t\t".join(args)
