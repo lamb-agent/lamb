@@ -143,13 +143,16 @@ def format_chat_message(
         case _:
             typing.assert_never(role)
     return (
-        f"{identity_symbol}{role_symbol}{label} [{role_colour}]{text}[/{role_colour}]"
+        f"{identity_symbol}{role_symbol}{label}"
+        f" [{role_colour}]{format_content(text)}[/{role_colour}]"
     )
 
 
 def format_tool_call(call: types.FunctionCall) -> str:
     args = [
-        f"{name}={value if not isinstance(value, str) else f'"{value}"'}"
+        f"{name}={
+            value if not isinstance(value, str) else f'"{format_content(value)}"'
+        }"
         for name, value in call.args.items()
     ]
     arg_string = ""
@@ -183,3 +186,7 @@ def format_label(msg: types.ChatMessage) -> str:
             return f"({label})"
         case _:
             return ""
+
+
+def format_content(content: str) -> str:
+    return content.replace("\\n", "\n").replace("\\t", "\t")
