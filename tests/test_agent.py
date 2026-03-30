@@ -604,7 +604,8 @@ def test_pr_fides() -> None:
         tool_call_msg(post_review, "UH"),
         tool_response(
             "",
-            "Invalid tool: post_webpage. Access to state-chaning tools is not available from untrusted context.",
+            "Invalid tool: post_webpage."
+            " Access to state-changing tools is not available from untrusted context.",
             post_review,
             "",
             "",
