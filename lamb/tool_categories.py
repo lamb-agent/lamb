@@ -108,7 +108,6 @@ WEB_CLIENT: set[typing.Callable] = {
     web.get_webpage,
     web.download_file,
     web.post_webpage,
-    web.standardize_url,
 }
 
 ALL: set[typing.Callable] = (
@@ -170,7 +169,6 @@ READ_ONLY: set[typing.Callable] = {
     travel_booking_client.get_user_information,
     user_account.get_user_info,
     web.get_webpage,
-    web.standardize_url,
 }
 """Read-only tools cannot harm the system
 and are thus safe to use in an untrusted (tainted) context.
@@ -283,13 +281,22 @@ UNTRUSTED_SOURCE: set[typing.Callable] = {
     user_account.get_user_info,
     user_account.update_user_info,
     web.get_webpage,
-    web.standardize_url,
 }
 """Tools whose results expose the caller to untrusted information,
 thus would taint the model, if revealed."""
 
-# TODO: Do we have any trusted sinks?
-TRUSTED_SINK: set[typing.Callable] = {slack.invite_user_to_slack}
+TRUSTED_SINK: set[typing.Callable] = {
+    banking_client.schedule_transaction,
+    banking_client.send_money,
+    banking_client.update_scheduled_transaction,
+    cloud_drive_client.share_file,
+    slack.invite_user_to_slack,
+    travel_booking_client.reserve_car_rental,
+    travel_booking_client.reserve_hotel,
+    travel_booking_client.reserve_restaurant,
+    user_account.update_password,
+    user_account.update_user_info,
+}
 """Tools that must only be called with trusted (non-tainted) information."""
 UNTRUSTED_SINK: set[typing.Callable] = ALL - TRUSTED_SINK
 """Tools that can be called with untrusted (tainted) information."""
@@ -370,7 +377,6 @@ LOW_CONF_SOURCE: set[typing.Callable] = {
     user_account.update_password,
     web.get_webpage,
     web.download_file,
-    web.standardize_url,
 }
 """Tools that return low confidentiality (public) information.
 This is also the case if the tool returns `None` or a static message."""
@@ -436,7 +442,6 @@ HIGH_CONF_SINK: set[typing.Callable] = {
     user_account.get_user_info,
     user_account.update_password,
     user_account.update_user_info,
-    web.standardize_url,
 }
 """Tools whose usage is internal, thus not observable by the untrusted.
 This means no confidential information can be leaked."""

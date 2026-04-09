@@ -228,7 +228,7 @@ class ADLabeler(ifc.Labeler):
             case fn if fn in tool_categories.LOW_CONF_SINK:
                 conf = ifc.Confidentiality.LOW
             case fn if fn in tool_categories.ARG_CONF_SINK:
-                conf = ARG_CONF_EVAL[fn](**all_args) # type: ignore
+                conf = ARG_CONF_EVAL[fn](**all_args)  # type: ignore
             case _:
                 raise ValueError("Tool is not labeled with a sink type")
         return ifc.IFCLabel(integ, conf)
