@@ -503,7 +503,7 @@ def benchmark(
     suites: list[str] | None = None,
     user_tasks: list[str] | None = None,
     injection_tasks: list[str] | None = None,
-    suite_version: str = "v1.2",
+    suite_version: str = "v1.2", # TODO: use different version?
     n_repeats: int = 1,
     force_rerun: bool = False,
 ) -> BenchmarkResults:
