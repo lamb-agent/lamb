@@ -152,7 +152,7 @@ type ChatMessage = UserMessage | AssistantMessage | ToolMessage
 
 def message_to_ad(message: ChatMessage) -> ad.ChatMessage:
     match message:
-        case UserMessage(content, role):
+        case UserMessage(content, _, role):
             return ad.ChatUserMessage(
                 role=role,
                 content=content_to_ad(content),
