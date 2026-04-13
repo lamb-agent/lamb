@@ -6,12 +6,22 @@ import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
-import lamb.tool_categories
+import lamb.types
 from lamb.agent import (
     Agent,
     AgentCore,
-    filter_tools,
 )
+
+B_LOW_FILTER = lamb.ifc.ALL_TOOLS - {
+    lamb.ifc.SystemAccess.PRIVILEGED,
+    lamb.ifc.Integrity.TRUSTED,
+}
+B_HIGH_FILTER = lamb.ifc.ALL_TOOLS - {
+    lamb.ifc.SystemAccess.PRIVILEGED,
+    lamb.ifc.Integrity.TRUSTED,
+    lamb.ifc.Confidentiality.LOW,
+}
+P_HIGH_FILTER = lamb.ifc.ALL_TOOLS - {lamb.ifc.Confidentiality.LOW}
 
 
 def make_core(
@@ -24,23 +34,19 @@ def make_core(
 
 
 def b_low_make_core(
-    all_fns: list[rt.Function],
+    tools: lamb.types.Tools,
     env: rt.TaskEnvironment,
     labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
-    read_only_fns = filter_tools(
-        all_fns, lamb.tool_categories.READ_ONLY & lamb.tool_categories.UNTRUSTED_SINK
-    )
+    bounded_fns = labeler.filter_tools(tools, B_LOW_FILTER)
     # no nested llms
-    runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(read_only_fns), env)
+    runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(bounded_fns), env)
 
     def on_context_change(ifc_label: lamb.ifc.IFCLabel) -> None:
         """Restrict B-LLM tools to read-only high conf sinks."""
 
         assert ifc_label == lamb.ifc.IFCLabel.UH, "B-LLM label must be UH."
-        high_conf_sink_fns = filter_tools(
-            read_only_fns, lamb.tool_categories.HIGH_CONF_SINK
-        )
+        high_conf_sink_fns = labeler.filter_tools(bounded_fns, B_HIGH_FILTER)
         runtime.set_functions(high_conf_sink_fns, [])
         # Note that the system prompt does not change and thus the LLM
         # still thinks it has variable passing
@@ -64,18 +70,18 @@ def p_make_core(
     env: rt.TaskEnvironment,
     labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
-    all_fns = list(functions_runtime.functions.values())
+    tools = list(functions_runtime.functions.values())
 
     b_low_llm = Agent.bounded(
         model=model,
         system_prompt=lamb.prompts.B_LLM_VARS_SYSTEM_PROMPT,
-        make_core=lambda: b_low_make_core(all_fns, env, labeler),
+        make_core=lambda: b_low_make_core(tools, env, labeler),
         initial_label="TL",
     )
     b_high_llm = Agent.bounded(
         model=model,
         system_prompt=lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env, labeler),
         initial_label="TH",
     )
 
@@ -101,10 +107,7 @@ def p_make_core(
         """Restrict P-LLM tools to high conf sinks."""
 
         assert ifc_label == lamb.ifc.IFCLabel.TH, "P-LLM label must be TH."
-        high_conf_sink_fns = filter_tools(
-            all_fns,
-            (lamb.tool_categories.HIGH_CONF_SINK | lamb.tool_categories.ARG_CONF_SINK),
-        )
+        high_conf_sink_fns = labeler.filter_tools(tools, P_HIGH_FILTER)
         query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
         query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(
             b_high_llm

@@ -5,7 +5,7 @@ import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
-import lamb.tool_categories
+from lamb import ifc
 from lamb.agent import Agent, AgentCore
 
 
@@ -13,20 +13,18 @@ def make_core(
     model: lamb.llm.Llm,
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
+    labeler: ifc.Labeler,
 ) -> AgentCore:
-    read_only_fns = [
-        fn
-        for fn in functions_runtime.functions.values()
-        if fn.run in lamb.tool_categories.READ_ONLY
-    ]
+    bounded_fns = labeler.filter_tools(
+        list(functions_runtime.functions.values()),
+        ifc.ALL_TOOLS - {ifc.SystemAccess.PRIVILEGED},
+    )
     b_llm = Agent.bounded(
         model,
         system_prompt=lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
         # no nested llms
         make_core=lambda: AgentCore(
-            runtime=lamb.runtime.Runtime.default(
-                rt.FunctionsRuntime(read_only_fns), env
-            ),
+            runtime=lamb.runtime.Runtime.default(rt.FunctionsRuntime(bounded_fns), env),
             formatter=lamb.formatter.VariableFormatter.none(),
         ),
         initial_label="UH",

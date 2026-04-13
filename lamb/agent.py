@@ -1,7 +1,7 @@
-from enum import Enum
 import typing
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from enum import Enum
 
 import agentdojo.agent_pipeline as pipeline
 import agentdojo.functions_runtime as rt
@@ -17,7 +17,6 @@ import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
-import lamb.tool_categories
 import lamb.tool_exec
 import lamb.types
 
@@ -250,19 +249,19 @@ class Agent:
 
     @staticmethod
     def bounded_high_make_core(
-        functions_runtime: rt.FunctionsRuntime, env: rt.TaskEnvironment
+        functions_runtime: rt.FunctionsRuntime,
+        env: rt.TaskEnvironment,
+        labeler: lamb.ifc.Labeler,
     ) -> AgentCore:
-        all_fns = list(functions_runtime.functions.values())
-        read_only_fns = filter_tools(
-            all_fns,
-            lamb.tool_categories.READ_ONLY
-            & lamb.tool_categories.UNTRUSTED_SINK
-            & (
-                lamb.tool_categories.HIGH_CONF_SINK | lamb.tool_categories.ARG_CONF_SINK
-            ),
-        )
+        B_HIGH_FILTER = lamb.ifc.ALL_TOOLS - {  # noqa: N806
+            lamb.ifc.SystemAccess.PRIVILEGED,
+            lamb.ifc.Integrity.TRUSTED,
+            lamb.ifc.Confidentiality.LOW,
+        }
+        tools = list(functions_runtime.functions.values())
+        bounded_fns = labeler.filter_tools(tools, B_HIGH_FILTER)
         # no nested llms
-        runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(read_only_fns), env)
+        runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(bounded_fns), env)
 
         return AgentCore(
             runtime=runtime,
@@ -292,6 +291,7 @@ class Agent:
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
+        labeler: lamb.ifc.Labeler,
     ) -> "Agent":
         from lamb.cores.lamb_no_ifc import make_core  # noqa: PLC0415
 
@@ -300,7 +300,7 @@ class Agent:
             model=model,
             identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
-            make_core=lambda: make_core(model, functions_runtime, env),
+            make_core=lambda: make_core(model, functions_runtime, env, labeler),
             initial_label="",
         )
 
@@ -351,13 +351,6 @@ class Agent:
         )
 
 
-def filter_tools(
-    all_fns: list[rt.Function],
-    tools_set: set[Callable],
-) -> list[rt.Function]:
-    return [fn for fn in all_fns if fn.run in tools_set]
-
-
 class AgentStr(Enum):
     SINGLE = "single"
     DUAL = "dual"
@@ -379,6 +372,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
+                        lamb.labels.ADLabeler(env),
                     )
                 )
             case AgentStr.DUAL:
@@ -387,6 +381,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
+                        lamb.labels.ADLabeler(env),
                     )
                 )
             case AgentStr.LAMB_NO_IFC:
@@ -395,6 +390,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
+                        lamb.labels.ADLabeler(env),
                     )
                 )
             case AgentStr.LAMB_DYNAMIC_IFC:

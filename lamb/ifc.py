@@ -13,6 +13,17 @@ class IFCError(Exception):
     pass
 
 
+class SystemAccess(Enum):
+    """System access is modelled as the lattice L={PRIVILEGED,BOUNDED}.
+
+    Tools that can potentially harm the system
+    should be considered PRIVILEGED.
+    """
+
+    PRIVILEGED = 0
+    BOUNDED = 1
+
+
 class Integrity(Enum):
     """Integrity is modelled as the Lattice L={TRUSTED,UNTRUSTED}.
 
@@ -43,6 +54,18 @@ class Confidentiality(Enum):
 
     def join(self, other: Self) -> Self:
         return type(self)(max(self.value, other.value))
+
+
+type ToolFilter = SystemAccess | Confidentiality | Integrity
+
+ALL_TOOLS: set[ToolFilter] = {
+    SystemAccess.PRIVILEGED,
+    SystemAccess.BOUNDED,
+    Confidentiality.HIGH,
+    Confidentiality.LOW,
+    Integrity.TRUSTED,
+    Integrity.UNTRUSTED,
+}
 
 
 class IFCLabel(Enum):
@@ -132,6 +155,11 @@ class Labeler(Protocol):
         tool: rt.Function,
         args: types.Args,
     ) -> IFCLabel: ...
+    def filter_tools(
+        self,
+        tools: types.Tools,
+        tool_filters: set[ToolFilter],
+    ) -> types.Tools: ...
 
 
 class IFCChecker:

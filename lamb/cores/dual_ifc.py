@@ -5,12 +5,12 @@ import lamb.ifc
 import lamb.llm
 import lamb.query_llm
 import lamb.runtime
-import lamb.tool_categories
 from lamb.agent import (
     Agent,
     AgentCore,
-    filter_tools,
 )
+
+P_HIGH_FILTER = lamb.ifc.ALL_TOOLS - {lamb.ifc.Confidentiality.LOW}
 
 
 def make_core(
@@ -20,7 +20,7 @@ def make_core(
     labeler: lamb.ifc.Labeler,
     secret_handling: lamb.ifc.SecretHandling,
 ) -> AgentCore:
-    all_fns = list(functions_runtime.functions.values())
+    tools = list(functions_runtime.functions.values())
 
     q_llm = Agent.quarantined(model)
 
@@ -54,8 +54,7 @@ def make_core(
 
     def on_model_context_change(ifc_label: lamb.ifc.IFCLabel) -> None:
         assert ifc_label == lamb.ifc.IFCLabel.TH, "P-LLM label must be TH."
-        # TODO: decouple tool filtering from tool_categories
-        high_conf_sink_fns = filter_tools(all_fns, lamb.tool_categories.HIGH_CONF_SINK)
+        high_conf_sink_fns = labeler.filter_tools(tools, P_HIGH_FILTER)
 
         runtime.set_functions(high_conf_sink_fns, [query_llm, query_llm_structured])
 

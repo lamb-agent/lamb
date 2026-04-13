@@ -8,13 +8,17 @@ import lamb.llm
 import lamb.prompts
 import lamb.query_llm
 import lamb.runtime
-import lamb.tool_categories
 import lamb.types
 from lamb.agent import (
     Agent,
     AgentCore,
-    filter_tools,
 )
+
+B_LOW_FILTER = lamb.ifc.ALL_TOOLS - {
+    lamb.ifc.SystemAccess.PRIVILEGED,
+    lamb.ifc.Integrity.TRUSTED,
+}
+P_HIGH_FILTER = lamb.ifc.ALL_TOOLS - {lamb.ifc.Confidentiality.LOW}
 
 
 def make_core(
@@ -32,20 +36,17 @@ def b_low_make_core(
     env: rt.TaskEnvironment,
     labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
-    all_fns = list(functions_runtime.functions.values())
+    tools = list(functions_runtime.functions.values())
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env, labeler),
         initial_label="UH",
     )
     b_low_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
     b_low_runtime = lamb.runtime.Runtime(
         functions_runtime=rt.FunctionsRuntime(
-            filter_tools(
-                all_fns,
-                lamb.tool_categories.READ_ONLY & lamb.tool_categories.UNTRUSTED_SINK,
-            )
+            labeler.filter_tools(tools, B_LOW_FILTER)
         ),
         env=env,
         custom_functions=[b_low_query_llm],
@@ -69,11 +70,11 @@ def p_high_make_core(
     env: rt.TaskEnvironment,
     labeler: lamb.ifc.Labeler,
 ) -> AgentCore:
-    all_fns = list(functions_runtime.functions.values())
+    tools = list(functions_runtime.functions.values())
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env, labeler),
         initial_label="UH",
     )
     p_high_query_llm = lamb.query_llm.make_query_llm_fn_with_agent(b_high_llm)
@@ -82,12 +83,8 @@ def p_high_make_core(
     )
     p_high_runtime = lamb.runtime.Runtime(
         functions_runtime=rt.FunctionsRuntime(
-            filter_tools(
-                all_fns,
-                (
-                    lamb.tool_categories.HIGH_CONF_SINK
-                    | lamb.tool_categories.ARG_CONF_SINK
-                ),
+            labeler.filter_tools(
+                tools, lamb.ifc.ALL_TOOLS - {lamb.ifc.Confidentiality.LOW}
             )
         ),
         env=env,
@@ -115,7 +112,7 @@ def p_low_make_core(
     b_high_llm = Agent.bounded(
         model,
         lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,
-        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env),
+        make_core=lambda: Agent.bounded_high_make_core(functions_runtime, env, labeler),
         initial_label="UH",
     )
 

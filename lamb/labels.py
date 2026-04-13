@@ -232,3 +232,35 @@ class ADLabeler(ifc.Labeler):
             case _:
                 raise ValueError("Tool is not labeled with a sink type")
         return ifc.IFCLabel(integ, conf)
+
+    def filter_tools(
+        self,
+        tools: types.Tools,
+        tool_filters: set[ifc.ToolFilter],
+    ) -> types.Tools:
+        conf_tools = tool_categories.ARG_CONF_SINK.union(
+            tool_categories.HIGH_CONF_SINK
+            if ifc.Confidentiality.HIGH in tool_filters
+            else set()
+        )
+        integ_tools = (
+            tool_categories.TRUSTED_SINK
+            if ifc.Integrity.TRUSTED in tool_filters
+            else set()
+        ).union(
+            tool_categories.UNTRUSTED_SINK
+            if ifc.Integrity.UNTRUSTED in tool_filters
+            else set()
+        )
+        access_tools = (
+            tool_categories.STATE_CHANGING
+            if ifc.SystemAccess.PRIVILEGED in tool_filters
+            else set()
+        ).union(
+            tool_categories.READ_ONLY
+            if ifc.SystemAccess.BOUNDED in tool_filters
+            else set()
+        )
+        filtered_tools = conf_tools.intersection(integ_tools).intersection(access_tools)
+
+        return [tool for tool in tools if tool in filtered_tools]

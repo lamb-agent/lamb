@@ -11,6 +11,7 @@ from openai.types.shared_params import ResponseFormatText
 type CallLLM = Callable[[list[ChatMessage]], ChatMessage]
 type CallTools = Callable[[list[FunctionCall]], list[ChatMessage]]
 type Args = Mapping[str, FunctionCallArgTypes]
+type Tools = list[rt.Function]
 
 TEXT_FORMAT: ResponseFormatText = {"type": "text"}
 
