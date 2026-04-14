@@ -68,6 +68,5 @@ def make_core(
 
     return AgentCore(
         runtime=runtime,
-        formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
         ifc_checker=ifc_checker,
     )

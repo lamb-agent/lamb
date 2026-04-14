@@ -59,7 +59,6 @@ def b_low_make_core(
     )
     return AgentCore(
         runtime=b_low_runtime,
-        formatter=lamb.formatter.VariableFormatter.ifc(b_low_ifc_checker),
         ifc_checker=b_low_ifc_checker,
     )
 
@@ -98,7 +97,6 @@ def p_high_make_core(
     )
     return AgentCore(
         runtime=p_high_runtime,
-        formatter=lamb.formatter.VariableFormatter.ifc(p_high_ifc_checker),
         ifc_checker=p_high_ifc_checker,
     )
 
@@ -137,8 +135,6 @@ def p_low_make_core(
         labeler=labeler,
         policy=lamb.ifc.IFCPolicy.static(),
     )
-
-    p_low_formatter = lamb.formatter.VariableFormatter.ifc(p_low_ifc_checker)
 
     def determine_agent(ifc_label: str) -> Agent:
         agent: Agent
@@ -182,6 +178,5 @@ def p_low_make_core(
     )
     return AgentCore(
         runtime=p_low_runtime,
-        formatter=p_low_formatter,
         ifc_checker=p_low_ifc_checker,
     )

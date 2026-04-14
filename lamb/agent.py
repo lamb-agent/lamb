@@ -29,8 +29,17 @@ class AgentCore:
     """
 
     runtime: lamb.runtime.Runtime
-    formatter: lamb.formatter.VariableFormatter
     ifc_checker: lamb.ifc.IFCChecker
+    formatter: lamb.formatter.VariableFormatter
+
+    def __init__(
+        self,
+        runtime: lamb.runtime.Runtime,
+        ifc_checker: lamb.ifc.IFCChecker,
+    ) -> None:
+        self.runtime = runtime
+        self.ifc_checker = ifc_checker
+        self.formatter = lamb.formatter.VariableFormatter.ifc(ifc_checker)
 
 
 class Agent:
@@ -147,7 +156,6 @@ class Agent:
             system_prompt=lamb.prompts.SINGLE_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
-                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
                 ifc_checker=ifc_checker,
             ),
             initial_label="",
@@ -166,7 +174,6 @@ class Agent:
             system_prompt=lamb.prompts.Q_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.empty(),
-                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
                 ifc_checker=ifc_checker,
             ),
             initial_label="",
@@ -195,7 +202,6 @@ class Agent:
                 runtime=lamb.runtime.Runtime(
                     functions_runtime, env, [query_llm, query_llm_structured]
                 ),
-                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
                 ifc_checker=ifc_checker,
             ),
             initial_label="",
@@ -268,7 +274,6 @@ class Agent:
         ifc_checker = lamb.ifc.IFCChecker.top(labeler=labeler)
         return AgentCore(
             runtime=runtime,
-            formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
             ifc_checker=ifc_checker,
         )
 

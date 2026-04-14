@@ -26,7 +26,6 @@ def make_core(
         # no nested llms
         make_core=lambda: AgentCore(
             runtime=lamb.runtime.Runtime.default(rt.FunctionsRuntime(bounded_fns), env),
-            formatter=lamb.formatter.VariableFormatter.ifc(b_ifc_checker),
             ifc_checker=b_ifc_checker,
         ),
         initial_label="UH",
@@ -39,6 +38,5 @@ def make_core(
         runtime=lamb.runtime.Runtime(
             functions_runtime, env, [query_llm, query_llm_structured]
         ),
-        formatter=lamb.formatter.VariableFormatter.ifc(p_ifc_checker),
         ifc_checker=p_ifc_checker,
     )
