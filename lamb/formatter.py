@@ -121,24 +121,6 @@ class VariableFormatter(types.Formatter):
         )
 
     @staticmethod
-    def integrity_based(query_llm: Callable | None = None) -> "VariableFormatter":
-        """Create new variable formatter that hides results from untrusted sources."""
-
-        # TODO: decouple tool categories from formatter
-        untrusted_source_fns = tool_categories.UNTRUSTED_SOURCE | {query_llm}
-
-        return VariableFormatter(
-            # TODO: shouldn't we use result here as well?
-            hide_result=lambda tool, _result, _var: (
-                tool.run in untrusted_source_fns,
-                ifc.IFCLabel.UL
-                if tool.run in untrusted_source_fns
-                else ifc.IFCLabel.TL,
-                ifc.IFCLabel.TL,
-            )
-        )
-
-    @staticmethod
     def ifc(ifc_checker: ifc.IFCChecker) -> "VariableFormatter":
         return VariableFormatter(
             hide_result=ifc_checker.hide,

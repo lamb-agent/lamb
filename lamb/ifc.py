@@ -195,7 +195,7 @@ class IFCChecker:
         self,
         model_context: IFCLabel,
         labeler: Labeler,
-        policy: IFCPolicy = IFCPolicy(conf="hide", integ="hide", violation="error"),  # noqa: B008
+        policy: IFCPolicy,
         on_model_context_change: Callable[[IFCLabel], None] = lambda label: None,  # noqa: ARG005
     ) -> None:
         self.var_labels = {}

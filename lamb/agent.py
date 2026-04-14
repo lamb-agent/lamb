@@ -30,7 +30,7 @@ class AgentCore:
 
     runtime: lamb.runtime.Runtime
     formatter: lamb.formatter.VariableFormatter
-    ifc_checker: lamb.ifc.IFCChecker | None = None
+    ifc_checker: lamb.ifc.IFCChecker
 
 
 class Agent:
@@ -71,9 +71,7 @@ class Agent:
         def call_llm(messages: list[lamb.types.ChatMessage]) -> lamb.types.ChatMessage:
             try:
                 response = tool_llm.prompt(messages, response_format)
-                if core.ifc_checker and isinstance(
-                    response, lamb.types.AssistantMessage
-                ):
+                if isinstance(response, lamb.types.AssistantMessage):
                     response.label = str(core.ifc_checker.get_model_context())
                 return response  # noqa: TRY300
             except openai.InternalServerError:
@@ -125,9 +123,7 @@ class Agent:
 
         history, core = self.run(user_prompt, response_format)
         response = lamb.types.get_response(history)
-        label = lamb.ifc.IFCLabel.top()  # default to TOP
-        if core.ifc_checker:
-            label = core.ifc_checker.response_label(response)
+        label = core.ifc_checker.response_label(response)
         # expand all variables
         for var, val in core.formatter.var_vals.items():
             response = response.replace(var, val)
@@ -143,6 +139,7 @@ class Agent:
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
     ) -> "Agent":
+        ifc_checker = lamb.ifc.IFCChecker.none(labeler)
         return Agent(
             name="single",
             model=model,
@@ -150,9 +147,8 @@ class Agent:
             system_prompt=lamb.prompts.SINGLE_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
-                formatter=lamb.formatter.VariableFormatter.ifc(
-                    lamb.ifc.IFCChecker.none(labeler)
-                ),
+                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
+                ifc_checker=ifc_checker,
             ),
             initial_label="",
         )
@@ -162,6 +158,7 @@ class Agent:
         model: lamb.llm.Llm,
         labeler: lamb.ifc.Labeler,
     ) -> "Agent":
+        ifc_checker = lamb.ifc.IFCChecker.top(labeler)
         return Agent(
             name="dual-quarantined",
             model=model,
@@ -169,9 +166,8 @@ class Agent:
             system_prompt=lamb.prompts.Q_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.empty(),
-                formatter=lamb.formatter.VariableFormatter.ifc(
-                    lamb.ifc.IFCChecker.top(labeler)
-                ),
+                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
+                ifc_checker=ifc_checker,
             ),
             initial_label="",
             max_iters=2,  # we know it can't be more, because no tools are available
@@ -189,7 +185,7 @@ class Agent:
         query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(
             q_llm
         )
-
+        ifc_checker = lamb.ifc.IFCChecker.vars_only(labeler)
         return Agent(
             name="dual-privileged",
             model=model,
@@ -199,10 +195,8 @@ class Agent:
                 runtime=lamb.runtime.Runtime(
                     functions_runtime, env, [query_llm, query_llm_structured]
                 ),
-                formatter=lamb.formatter.VariableFormatter.integrity_based(
-                    query_llm.run
-                ),
-                ifc_checker=lamb.ifc.IFCChecker.vars_only(labeler),
+                formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
+                ifc_checker=ifc_checker,
             ),
             initial_label="",
         )
@@ -271,11 +265,11 @@ class Agent:
         # no nested llms
         runtime = lamb.runtime.Runtime.default(rt.FunctionsRuntime(bounded_fns), env)
 
+        ifc_checker = lamb.ifc.IFCChecker.top(labeler=labeler)
         return AgentCore(
             runtime=runtime,
-            formatter=lamb.formatter.VariableFormatter.ifc(
-                lamb.ifc.IFCChecker.top(labeler=labeler)
-            ),
+            formatter=lamb.formatter.VariableFormatter.ifc(ifc_checker),
+            ifc_checker=ifc_checker,
         )
 
     @staticmethod
