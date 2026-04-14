@@ -22,7 +22,7 @@ def make_core(
 ) -> AgentCore:
     tools = list(functions_runtime.functions.values())
 
-    q_llm = Agent.quarantined(model)
+    q_llm = Agent.quarantined(model, labeler)
 
     def label_response(
         response: lamb.query_llm.QueryLlmResponse,
@@ -61,14 +61,14 @@ def make_core(
     ifc_checker: lamb.ifc.IFCChecker
     match secret_handling:
         case lamb.ifc.SecretHandling.DYNAMIC:
-            ifc_checker = lamb.ifc.IFCChecker(
+            ifc_checker = lamb.ifc.RealIFCChecker(
                 model_context=lamb.ifc.IFCLabel.TL,
                 labeler=labeler,
                 secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
                 on_model_context_change=on_model_context_change,
             )
         case lamb.ifc.SecretHandling.STATIC:
-            ifc_checker = lamb.ifc.IFCChecker(
+            ifc_checker = lamb.ifc.RealIFCChecker(
                 model_context=lamb.ifc.IFCLabel.TL,
                 labeler=labeler,
                 secret_handling=lamb.ifc.SecretHandling.STATIC,

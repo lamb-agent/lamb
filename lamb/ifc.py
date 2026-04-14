@@ -9,10 +9,6 @@ import agentdojo.functions_runtime as rt
 from lamb import types
 
 
-class IFCError(Exception):
-    pass
-
-
 class SystemAccess(Enum):
     """System access is modelled as the lattice L={PRIVILEGED,BOUNDED}.
 
@@ -162,7 +158,39 @@ class Labeler(Protocol):
     ) -> types.Tools: ...
 
 
-class IFCChecker:
+class IFCError(Exception):
+    source: IFCLabel
+    sink: IFCLabel
+
+    def __init__(
+        self,
+        message: str,
+        source: IFCLabel,
+        sink: IFCLabel,
+    ) -> None:
+        super().__init__(message)
+        self.source = source
+        self.sink = sink
+
+
+class IFCChecker(typing.Protocol):
+    def hide(
+        self,
+        tool: rt.Function,
+        result: rt.FunctionReturnType,
+        var: str,
+    ) -> tuple[bool, IFCLabel, IFCLabel]: ...
+    def check(
+        self,
+        tool: rt.Function,
+        hidden_args: types.Args,
+        expanded_args: types.Args,
+    ) -> tuple[IFCLabel, IFCLabel]: ...
+    def get_model_context(self) -> IFCLabel: ...
+    def response_label(self, response: str) -> IFCLabel: ...
+
+
+class RealIFCChecker:
     model_context: IFCLabel
     var_labels: dict[str, IFCLabel]
     secret_handling: SecretHandling
@@ -182,8 +210,14 @@ class IFCChecker:
         self.secret_handling = secret_handling
         self.on_model_context_change = on_model_context_change
 
-    def hide_result(
-        self, tool: rt.Function, result: rt.FunctionReturnType, var: str
+    def get_model_context(self) -> IFCLabel:
+        return self.model_context
+
+    def hide(
+        self,
+        tool: rt.Function,
+        result: rt.FunctionReturnType,
+        var: str,
     ) -> tuple[bool, IFCLabel, IFCLabel]:
         source = self.labeler.tool_source_label(tool, result)
         sink = self.model_context
@@ -221,7 +255,9 @@ class IFCChecker:
             total_source = total_source.join(source)
             if not source.permitted_flow(sink):
                 raise IFCError(
-                    f"The argument `{name}` contains a variable that violates the IFC policies"  # noqa: E501
+                    message=f"The argument `{name}` contains a variable that violates the IFC policies",  # noqa: E501
+                    source=total_source,
+                    sink=sink,
                 )
         return total_source, sink
 
@@ -260,3 +296,58 @@ class IFCChecker:
         labels = {self.var_labels[var] for var in variables}
         joined_label = reduce(IFCLabel.join, labels, self.model_context)
         return joined_label
+
+
+class NoIFCChecker(IFCChecker):
+    ifc_checker: RealIFCChecker
+
+    def __init__(self, ifc_checker: RealIFCChecker) -> None:
+        self.ifc_checker = ifc_checker
+
+    def get_model_context(self) -> IFCLabel:
+        return self.ifc_checker.model_context
+
+    def response_label(self, response: str) -> IFCLabel:
+        return self.ifc_checker.response_label(response)
+
+    def hide(
+        self,
+        tool: rt.Function,
+        result: rt.FunctionReturnType,
+        var: str,
+    ) -> tuple[bool, IFCLabel, IFCLabel]:
+        _, source, sink = self.ifc_checker.hide(tool, result, var)
+        # never hide
+        return False, source, sink
+
+    def check(
+        self,
+        tool: rt.Function,
+        hidden_args: types.Args,
+        expanded_args: types.Args,
+    ) -> tuple[IFCLabel, IFCLabel]:
+        try:
+            return self.ifc_checker.check(tool, hidden_args, expanded_args)
+        except IFCError as e:
+            # allow all checks
+            return e.source, e.sink
+
+    @staticmethod
+    def default(labeler: Labeler) -> "NoIFCChecker":
+        return NoIFCChecker(
+            RealIFCChecker(
+                model_context=IFCLabel.bot(),
+                labeler=labeler,
+                secret_handling=SecretHandling.DYNAMIC,
+            )
+        )
+
+    @staticmethod
+    def with_context(labeler: Labeler, model_context: IFCLabel) -> "NoIFCChecker":
+        return NoIFCChecker(
+            RealIFCChecker(
+                model_context=model_context,
+                labeler=labeler,
+                secret_handling=SecretHandling.DYNAMIC,
+            )
+        )

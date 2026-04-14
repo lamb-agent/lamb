@@ -74,7 +74,7 @@ class Agent:
                 if core.ifc_checker and isinstance(
                     response, lamb.types.AssistantMessage
                 ):
-                    response.label = str(core.ifc_checker.model_context)
+                    response.label = str(core.ifc_checker.get_model_context())
                 return response  # noqa: TRY300
             except openai.InternalServerError:
                 return lamb.types.make_assistant_prompt(
@@ -141,6 +141,7 @@ class Agent:
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
+        labeler: lamb.ifc.Labeler,
     ) -> "Agent":
         return Agent(
             name="single",
@@ -149,7 +150,9 @@ class Agent:
             system_prompt=lamb.prompts.SINGLE_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
-                formatter=lamb.formatter.VariableFormatter.none(),
+                formatter=lamb.formatter.VariableFormatter.ifc(
+                    lamb.ifc.NoIFCChecker.default(labeler)
+                ),
             ),
             initial_label="",
         )
@@ -157,6 +160,7 @@ class Agent:
     @staticmethod
     def quarantined(
         model: lamb.llm.Llm,
+        labeler: lamb.ifc.Labeler,
     ) -> "Agent":
         return Agent(
             name="dual-quarantined",
@@ -165,7 +169,9 @@ class Agent:
             system_prompt=lamb.prompts.Q_LLM_SYSTEM_PROMPT,
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.empty(),
-                formatter=lamb.formatter.VariableFormatter.none(),
+                formatter=lamb.formatter.VariableFormatter.ifc(
+                    lamb.ifc.NoIFCChecker.default(labeler)
+                ),
             ),
             initial_label="",
             max_iters=2,  # we know it can't be more, because no tools are available
@@ -176,8 +182,9 @@ class Agent:
         model: lamb.llm.Llm,
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
+        labeler: lamb.ifc.Labeler,
     ) -> "Agent":
-        q_llm = Agent.quarantined(model)
+        q_llm = Agent.quarantined(model, labeler)
         query_llm = lamb.query_llm.make_query_llm_fn_with_agent(q_llm)
         query_llm_structured = lamb.query_llm.make_query_llm_structured_fn_with_agent(
             q_llm
@@ -265,8 +272,12 @@ class Agent:
 
         return AgentCore(
             runtime=runtime,
-            # we are already at TOP
-            formatter=lamb.formatter.VariableFormatter.none(),
+            formatter=lamb.formatter.VariableFormatter.ifc(
+                lamb.ifc.RealIFCChecker(
+                    model_context=lamb.ifc.IFCLabel.top(),
+                    labeler=labeler,
+                )
+            ),
         )
 
     @staticmethod

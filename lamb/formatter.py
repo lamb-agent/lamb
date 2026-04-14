@@ -121,18 +121,6 @@ class VariableFormatter(types.Formatter):
         )
 
     @staticmethod
-    def none() -> "VariableFormatter":
-        """Never hide variables."""
-
-        return VariableFormatter(
-            hide_result=lambda _tool, _result, _var: (
-                False,
-                None,
-                None,
-            )
-        )
-
-    @staticmethod
     def integrity_based(query_llm: Callable | None = None) -> "VariableFormatter":
         """Create new variable formatter that hides results from untrusted sources."""
 
@@ -153,7 +141,7 @@ class VariableFormatter(types.Formatter):
     @staticmethod
     def ifc(ifc_checker: ifc.IFCChecker) -> "VariableFormatter":
         return VariableFormatter(
-            hide_result=ifc_checker.hide_result,
+            hide_result=ifc_checker.hide,
             check_call=ifc_checker.check,
         )
 

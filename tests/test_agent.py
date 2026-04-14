@@ -101,7 +101,7 @@ def assistant_msg(msg: str, label: str = "") -> types.AssistantMessage:
 def test_single_empty() -> None:
     messages: list[types.ChatMessage] = [types.AssistantMessage("content", [], "")]
     runtime, env = empty_rt()
-    a = Agent.single(MockLlm(messages), runtime, env)
+    a = Agent.single(MockLlm(messages), runtime, env, labels.ADLabeler(env))
     history, label = a.prompt("")
     assert history[-1] == messages[-1]
     assert label == ifc.IFCLabel.UH
@@ -114,7 +114,7 @@ def test_single_tool_call() -> None:
         tool_call_msg(call_0, ""),
         assistant_msg("content"),
     ]
-    a = Agent.single(MockLlm(messages), runtime, env)
+    a = Agent.single(MockLlm(messages), runtime, env, labels.ADLabeler(env))
     history, label = a.prompt("")
     assert history[-3] == messages[-2]
     assert history[-2] == types.ToolMessage(
@@ -303,7 +303,7 @@ def agent_fn_dual(
     env: rt.TaskEnvironment,
     messages: list[types.ChatMessage],
 ) -> Agent:
-    return Agent.dual(MockLlm(messages), runtime, env)
+    return Agent.dual(MockLlm(messages), runtime, env, labels.ADLabeler(env))
 
 
 def test_meeting_notes_no_attack_dual() -> None:
@@ -545,6 +545,7 @@ def test_pr_dual() -> None:
         MockLlm(messages),
         runtime,
         env,
+        labels.ADLabeler(env),
     )
     logging.info("")
     history, _ = a.prompt(user_prompt)

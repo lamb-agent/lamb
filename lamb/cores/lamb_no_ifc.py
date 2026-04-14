@@ -25,7 +25,9 @@ def make_core(
         # no nested llms
         make_core=lambda: AgentCore(
             runtime=lamb.runtime.Runtime.default(rt.FunctionsRuntime(bounded_fns), env),
-            formatter=lamb.formatter.VariableFormatter.none(),
+            formatter=lamb.formatter.VariableFormatter.ifc(
+                ifc.NoIFCChecker.with_context(labeler, ifc.IFCLabel.UL)
+            ),
         ),
         initial_label="UH",
     )
