@@ -52,10 +52,10 @@ def b_low_make_core(
         custom_functions=[b_low_query_llm],
     )
 
-    b_low_ifc_checker = lamb.ifc.RealIFCChecker(
+    b_low_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UL,
         labeler=labeler,
-        secret_handling=lamb.ifc.SecretHandling.STATIC,
+        policy=lamb.ifc.IFCPolicy.static(),
     )
     return AgentCore(
         runtime=b_low_runtime,
@@ -91,10 +91,10 @@ def p_high_make_core(
         custom_functions=[p_high_query_llm, p_high_query_llm_structured],
     )
 
-    p_high_ifc_checker = lamb.ifc.RealIFCChecker(
+    p_high_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TH,
         labeler=labeler,
-        secret_handling=lamb.ifc.SecretHandling.STATIC,
+        policy=lamb.ifc.IFCPolicy.static(),
     )
     return AgentCore(
         runtime=p_high_runtime,
@@ -132,10 +132,10 @@ def p_low_make_core(
         initial_label="TH",
     )
 
-    p_low_ifc_checker = lamb.ifc.RealIFCChecker(
+    p_low_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
         labeler=labeler,
-        secret_handling=lamb.ifc.SecretHandling.STATIC,
+        policy=lamb.ifc.IFCPolicy.static(),
     )
 
     p_low_formatter = lamb.formatter.VariableFormatter.ifc(p_low_ifc_checker)

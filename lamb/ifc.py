@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import typing
 from collections.abc import Callable
 from enum import Enum
@@ -135,9 +136,19 @@ class IFCLabel(Enum):
         return self.conf == Confidentiality.HIGH
 
 
-class SecretHandling(Enum):
-    DYNAMIC = "dynamic"
-    STATIC = "static"
+@dataclass
+class IFCPolicy:
+    conf: typing.Literal["hide", "taint"]
+    integ: typing.Literal["hide", "taint"]
+    violation: typing.Literal["error", "ignore"]
+
+    @staticmethod
+    def dynamic() -> "IFCPolicy":
+        return IFCPolicy(conf="taint", integ="hide", violation="error")
+
+    @staticmethod
+    def static() -> "IFCPolicy":
+        return IFCPolicy(conf="hide", integ="hide", violation="error")
 
 
 class Labeler(Protocol):
@@ -173,27 +184,10 @@ class IFCError(Exception):
         self.sink = sink
 
 
-class IFCChecker(typing.Protocol):
-    def hide(
-        self,
-        tool: rt.Function,
-        result: rt.FunctionReturnType,
-        var: str,
-    ) -> tuple[bool, IFCLabel, IFCLabel]: ...
-    def check(
-        self,
-        tool: rt.Function,
-        hidden_args: types.Args,
-        expanded_args: types.Args,
-    ) -> tuple[IFCLabel, IFCLabel]: ...
-    def get_model_context(self) -> IFCLabel: ...
-    def response_label(self, response: str) -> IFCLabel: ...
-
-
-class RealIFCChecker:
+class IFCChecker:
     model_context: IFCLabel
     var_labels: dict[str, IFCLabel]
-    secret_handling: SecretHandling
+    policy: IFCPolicy
     on_model_context_change: Callable[[IFCLabel], None]
     labeler: Labeler
 
@@ -201,13 +195,13 @@ class RealIFCChecker:
         self,
         model_context: IFCLabel,
         labeler: Labeler,
-        secret_handling: SecretHandling = SecretHandling.STATIC,
+        policy: IFCPolicy = IFCPolicy(conf="hide", integ="hide", violation="error"),  # noqa: B008
         on_model_context_change: Callable[[IFCLabel], None] = lambda label: None,  # noqa: ARG005
     ) -> None:
         self.var_labels = {}
         self.model_context = model_context
         self.labeler = labeler
-        self.secret_handling = secret_handling
+        self.policy = policy
         self.on_model_context_change = on_model_context_change
 
     def get_model_context(self) -> IFCLabel:
@@ -221,22 +215,26 @@ class RealIFCChecker:
     ) -> tuple[bool, IFCLabel, IFCLabel]:
         source = self.labeler.tool_source_label(tool, result)
         sink = self.model_context
-        do_hide = not source.permitted_flow(sink)
-        # if secret handling is dynamic, we prefer tainting the model
-        # over hiding the result in a variable
-        if (
-            do_hide
-            and self.secret_handling == SecretHandling.DYNAMIC
-            and source.permitted_flow(sink.set_conf(Confidentiality.HIGH))
-        ):
-            # NOTE: For the single_llm upgrading the integrity
-            # might also be a valid use-case
-            self.model_context = self.model_context.set_conf(Confidentiality.HIGH)
-            self.on_model_context_change(self.model_context)
-            do_hide = False
-
-        if do_hide:
-            self.var_labels[var] = source
+        conf_permitted = source.conf.permitted_flow(sink.conf)
+        integ_permitted = source.integ.permitted_flow(sink.integ)
+        do_hide: bool
+        match (conf_permitted, integ_permitted, self.policy):
+            case (False, True, IFCPolicy(conf="taint")):
+                self.model_context = self.model_context.set_conf(Confidentiality.HIGH)
+                self.on_model_context_change(self.model_context)
+                do_hide = False
+            case (True, False, IFCPolicy(integ="taint")):
+                self.model_context = self.model_context.set_integ(Integrity.UNTRUSTED)
+                self.on_model_context_change(self.model_context)
+                do_hide = False
+            case (False, False, IFCPolicy(conf="taint", integ="taint")):
+                self.model_context = self.model_context.set_conf(Confidentiality.HIGH)
+                self.model_context = self.model_context.set_integ(Integrity.UNTRUSTED)
+                self.on_model_context_change(self.model_context)
+                do_hide = False
+            case _:
+                self.var_labels[var] = source
+                do_hide = True
         return do_hide, source, self.model_context
 
     def check(
@@ -253,12 +251,14 @@ class RealIFCChecker:
             variable_labels = {self.var_labels[var] for var in self.find_vars(arg)}
             source = reduce(IFCLabel.join, variable_labels, self.model_context)
             total_source = total_source.join(source)
-            if not source.permitted_flow(sink):
+            if not source.permitted_flow(sink) and self.policy.violation == "error":
                 raise IFCError(
                     message=f"The argument `{name}` contains a variable that violates the IFC policies",  # noqa: E501
                     source=total_source,
                     sink=sink,
                 )
+            # TODO: should we log in case of not permitted but ignore,
+            # to remember for the stats whether we would have had an ifc violation?
         return total_source, sink
 
     def find_vars(self, arg: types.FunctionCallArgTypes) -> set[str]:
@@ -297,57 +297,34 @@ class RealIFCChecker:
         joined_label = reduce(IFCLabel.join, labels, self.model_context)
         return joined_label
 
-
-class NoIFCChecker(IFCChecker):
-    ifc_checker: RealIFCChecker
-
-    def __init__(self, ifc_checker: RealIFCChecker) -> None:
-        self.ifc_checker = ifc_checker
-
-    def get_model_context(self) -> IFCLabel:
-        return self.ifc_checker.model_context
-
-    def response_label(self, response: str) -> IFCLabel:
-        return self.ifc_checker.response_label(response)
-
-    def hide(
-        self,
-        tool: rt.Function,
-        result: rt.FunctionReturnType,
-        var: str,
-    ) -> tuple[bool, IFCLabel, IFCLabel]:
-        _, source, sink = self.ifc_checker.hide(tool, result, var)
-        # never hide
-        return False, source, sink
-
-    def check(
-        self,
-        tool: rt.Function,
-        hidden_args: types.Args,
-        expanded_args: types.Args,
-    ) -> tuple[IFCLabel, IFCLabel]:
-        try:
-            return self.ifc_checker.check(tool, hidden_args, expanded_args)
-        except IFCError as e:
-            # allow all checks
-            return e.source, e.sink
-
     @staticmethod
-    def default(labeler: Labeler) -> "NoIFCChecker":
-        return NoIFCChecker(
-            RealIFCChecker(
-                model_context=IFCLabel.bot(),
-                labeler=labeler,
-                secret_handling=SecretHandling.DYNAMIC,
-            )
+    def none(labeler: Labeler) -> "IFCChecker":
+        return IFCChecker(
+            model_context=IFCLabel.bot(),
+            labeler=labeler,
+            policy=IFCPolicy(conf="taint", integ="taint", violation="ignore"),
         )
 
     @staticmethod
-    def with_context(labeler: Labeler, model_context: IFCLabel) -> "NoIFCChecker":
-        return NoIFCChecker(
-            RealIFCChecker(
-                model_context=model_context,
-                labeler=labeler,
-                secret_handling=SecretHandling.DYNAMIC,
-            )
+    def none_with_context(labeler: Labeler, context: IFCLabel) -> "IFCChecker":
+        return IFCChecker(
+            model_context=context,
+            labeler=labeler,
+            policy=IFCPolicy(conf="taint", integ="taint", violation="ignore"),
+        )
+
+    @staticmethod
+    def vars_only(labeler: Labeler) -> "IFCChecker":
+        return IFCChecker(
+            model_context=IFCLabel.bot(),
+            labeler=labeler,
+            policy=IFCPolicy(conf="taint", integ="hide", violation="ignore"),
+        )
+
+    @staticmethod
+    def top(labeler: Labeler) -> "IFCChecker":
+        return IFCChecker(
+            model_context=IFCLabel.top(),
+            labeler=labeler,
+            policy=IFCPolicy(conf="taint", integ="taint", violation="error"),
         )

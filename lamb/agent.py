@@ -151,7 +151,7 @@ class Agent:
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
                 formatter=lamb.formatter.VariableFormatter.ifc(
-                    lamb.ifc.NoIFCChecker.default(labeler)
+                    lamb.ifc.IFCChecker.none(labeler)
                 ),
             ),
             initial_label="",
@@ -170,7 +170,7 @@ class Agent:
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.empty(),
                 formatter=lamb.formatter.VariableFormatter.ifc(
-                    lamb.ifc.NoIFCChecker.default(labeler)
+                    lamb.ifc.IFCChecker.top(labeler)
                 ),
             ),
             initial_label="",
@@ -202,6 +202,7 @@ class Agent:
                 formatter=lamb.formatter.VariableFormatter.integrity_based(
                     query_llm.run
                 ),
+                ifc_checker=lamb.ifc.IFCChecker.vars_only(labeler),
             ),
             initial_label="",
         )
@@ -225,7 +226,7 @@ class Agent:
                 functions_runtime,
                 env,
                 labeler,
-                lamb.ifc.SecretHandling.DYNAMIC,
+                lamb.ifc.IFCPolicy(conf="taint", integ="hide", violation="error"),
             ),
             initial_label="TL",
         )
@@ -249,7 +250,7 @@ class Agent:
                 functions_runtime,
                 env,
                 labeler,
-                lamb.ifc.SecretHandling.STATIC,
+                lamb.ifc.IFCPolicy(conf="hide", integ="hide", violation="error"),
             ),
             initial_label="TL",
         )
@@ -273,10 +274,7 @@ class Agent:
         return AgentCore(
             runtime=runtime,
             formatter=lamb.formatter.VariableFormatter.ifc(
-                lamb.ifc.RealIFCChecker(
-                    model_context=lamb.ifc.IFCLabel.top(),
-                    labeler=labeler,
-                )
+                lamb.ifc.IFCChecker.top(labeler=labeler)
             ),
         )
 

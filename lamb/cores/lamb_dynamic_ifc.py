@@ -51,9 +51,9 @@ def b_low_make_core(
         # Note that the system prompt does not change and thus the LLM
         # still thinks it has variable passing
 
-    b_ifc_checker = lamb.ifc.RealIFCChecker(
+    b_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.UL,
-        secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
+        policy=lamb.ifc.IFCPolicy.dynamic(),
         labeler=labeler,
         on_model_context_change=on_context_change,
     )
@@ -115,10 +115,10 @@ def p_make_core(
 
         runtime.set_functions(high_conf_sink_fns, [query_llm, query_llm_structured])
 
-    p_ifc_checker = lamb.ifc.RealIFCChecker(
+    p_ifc_checker = lamb.ifc.IFCChecker(
         model_context=lamb.ifc.IFCLabel.TL,
         labeler=labeler,
-        secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
+        policy=lamb.ifc.IFCPolicy.dynamic(),
         on_model_context_change=p_on_context_change,
     )
     formatter = lamb.formatter.VariableFormatter.ifc(p_ifc_checker)

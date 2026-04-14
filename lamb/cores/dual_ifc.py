@@ -18,8 +18,9 @@ def make_core(
     functions_runtime: rt.FunctionsRuntime,
     env: rt.TaskEnvironment,
     labeler: lamb.ifc.Labeler,
-    secret_handling: lamb.ifc.SecretHandling,
+    policy: lamb.ifc.IFCPolicy,
 ) -> AgentCore:
+    assert policy.integ == "hide", "Dual LLM must hide untrusted"
     tools = list(functions_runtime.functions.values())
 
     q_llm = Agent.quarantined(model, labeler)
@@ -58,21 +59,12 @@ def make_core(
 
         runtime.set_functions(high_conf_sink_fns, [query_llm, query_llm_structured])
 
-    ifc_checker: lamb.ifc.IFCChecker
-    match secret_handling:
-        case lamb.ifc.SecretHandling.DYNAMIC:
-            ifc_checker = lamb.ifc.RealIFCChecker(
-                model_context=lamb.ifc.IFCLabel.TL,
-                labeler=labeler,
-                secret_handling=lamb.ifc.SecretHandling.DYNAMIC,
-                on_model_context_change=on_model_context_change,
-            )
-        case lamb.ifc.SecretHandling.STATIC:
-            ifc_checker = lamb.ifc.RealIFCChecker(
-                model_context=lamb.ifc.IFCLabel.TL,
-                labeler=labeler,
-                secret_handling=lamb.ifc.SecretHandling.STATIC,
-            )
+    ifc_checker = lamb.ifc.IFCChecker(
+        model_context=lamb.ifc.IFCLabel.TL,
+        labeler=labeler,
+        policy=policy,
+        on_model_context_change=on_model_context_change,
+    )
 
     return AgentCore(
         runtime=runtime,
