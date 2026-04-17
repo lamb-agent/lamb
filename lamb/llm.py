@@ -16,6 +16,7 @@ from lamb.runtime import Runtime
 
 
 class OllamaModel(Enum):
+    GEMMA4 = "gemma4:31b"
     GPT_OSS_20B = "gpt-oss:20b"
     GPT_OSS_120B = "gpt-oss:120b"
     LLAMA3_3_70B = "llama3.3:70b"
