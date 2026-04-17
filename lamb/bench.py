@@ -12,10 +12,10 @@ import agentdojo.attacks
 import agentdojo.base_tasks
 import agentdojo.benchmark
 import agentdojo.task_suite
-from agentdojo.types import ChatMessage
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from lamb import agent, logging
+from lamb.types import ChatMessage
 
 # TODO: timestamp individual test runs
 
@@ -204,12 +204,12 @@ def run_task(
         if with_attack:
             logging.info(
                 "Skipping task"
-                f" '{user_task.ID}' with '{injection_task.ID}'"
+                f" '{task_result.user_task_id}' with '{task_result.injection_task_id}'"
                 " because it was already run."
             )
         else:
             logging.info(
-                f"Skipping task '{task.ID}' with no injections because it was"
+                f"Skipping task '{task_result.user_task_id}' with no injections because it was"
                 " already run."
             )
         return task_result
@@ -503,7 +503,7 @@ def benchmark(
     suites: list[str] | None = None,
     user_tasks: list[str] | None = None,
     injection_tasks: list[str] | None = None,
-    suite_version: str = "v1.2", # TODO: use different version?
+    suite_version: str = "v1.2",  # TODO: use different version?
     n_repeats: int = 1,
     force_rerun: bool = False,
 ) -> BenchmarkResults:

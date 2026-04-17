@@ -226,7 +226,7 @@ class Agent:
                 functions_runtime,
                 env,
                 labeler,
-                lamb.ifc.IFCPolicy(conf="taint", integ="hide", violation="error"),
+                lamb.ifc.IFCPolicy.dynamic(),
             ),
             initial_label="TL",
         )
@@ -250,7 +250,7 @@ class Agent:
                 functions_runtime,
                 env,
                 labeler,
-                lamb.ifc.IFCPolicy(conf="hide", integ="hide", violation="error"),
+                lamb.ifc.IFCPolicy.static(),
             ),
             initial_label="TL",
         )

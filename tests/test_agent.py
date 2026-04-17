@@ -178,9 +178,10 @@ def test_argument_validation() -> None:
         labels.ADLabeler(env),
     )
     history, _ = a.prompt("Send an email to paul@gmail.com with a bad attachment")
-    assert isinstance(history[-2], types.ToolMessage)
-    assert history[-2].error is not None
-    assert "ValidationError" in history[-2].error
+    prev_msg = history[-2]
+    assert isinstance(prev_msg, types.ToolMessage)
+    assert prev_msg.error is not None
+    assert "ValidationError" in prev_msg.error
 
 
 def prepare_meeting_notes_rt() -> tuple[

@@ -109,9 +109,7 @@ class LiveLlm(Llm):
     ) -> "LiveLlm":
         env_var = "LAMB_OPENAI_API_KEY"
         api_key = os.environ.get(env_var)
-        if api_key is None:
-            print(f"{env_var} must be set!", file=sys.stderr)
-            sys.exit(1)
+        assert isinstance(api_key, str), f"{env_var} must be set!"
         return LiveLlm(
             model.value,
             api_key=api_key,
