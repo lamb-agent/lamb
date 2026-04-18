@@ -1,29 +1,31 @@
+import typing
 from pathlib import Path
 
+import typer
+
 from lamb import (
-    agent,
     bench,
-    labels,
     llm,
 )
-from lamb.agent import Agent
+from lamb.agent import ADAgentLoop, AgentFn, AgentStr
 
 
-def main() -> None:
-    log_dir = Path(".log")
-    model = llm.LiveLlm.ollama_openai(llm.OllamaModel.GPT_OSS_120B)
+def main(
+    agent: str,
+    port: str = "11434",
+    run: str | None = None,
+    model: llm.OllamaModel = llm.OllamaModel.GEMMA4,
+    log_dir: str = ".log",
+) -> None:
+    m = llm.LiveLlm.ollama_openai(model, port=port)
+    assert agent in typing.get_args(AgentStr)
+    agent = typing.cast("AgentStr", agent)
+    agent_fn = AgentFn.new(agent, m)
     bench.benchmark(
-        agent_loop=agent.ADAgentLoop(
-            lambda runtime, env: Agent.lamb_dynamic_ifc(
-                model,
-                runtime,
-                env,
-                labels.ADLabeler(env),
-            )
-        ),
-        model=model.model,
-        agent="local-lamb-dynamic-ifc",
-        log_dir=log_dir,
+        agent_loop=ADAgentLoop(agent_fn),
+        model=m.model,
+        agent=f"local-{agent}-{model.nickname()}{'' if not run else f'r{run}'}",
+        log_dir=Path(log_dir),
         attack="tool_knowledge",
         suites=None,
         user_tasks=None,
@@ -35,4 +37,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)

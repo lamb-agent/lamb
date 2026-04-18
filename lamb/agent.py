@@ -1,3 +1,4 @@
+import typing
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
@@ -10,6 +11,7 @@ from openai.types.chat.completion_create_params import ResponseFormat
 import lamb.controller
 import lamb.formatter
 import lamb.ifc
+import lamb.labels
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -355,7 +357,66 @@ def filter_tools(
     return [fn for fn in all_fns if fn.run in tools_set]
 
 
-type AgentFn = Callable[[rt.FunctionsRuntime, rt.TaskEnvironment], Agent]
+type AgentStr = typing.Literal[
+    "single",
+    "dual",
+    "lamb-no-ifc",
+    "lamb-dynamic-ifc",
+    "lamb-static-ifc",
+]
+
+
+@dataclass
+class AgentFn:
+    make: Callable[[rt.FunctionsRuntime, rt.TaskEnvironment], Agent]
+
+    @staticmethod
+    def new(name: AgentStr, model: lamb.llm.Llm) -> "AgentFn":
+        match name:
+            case "single":
+                return AgentFn(
+                    lambda runtime, env: Agent.single(
+                        model,
+                        runtime,
+                        env,
+                    )
+                )
+            case "dual":
+                return AgentFn(
+                    lambda runtime, env: Agent.dual(
+                        model,
+                        runtime,
+                        env,
+                    )
+                )
+            case "lamb-no-ifc":
+                return AgentFn(
+                    lambda runtime, env: Agent.lamb_no_ifc(
+                        model,
+                        runtime,
+                        env,
+                    )
+                )
+            case "lamb-dynamic-ifc":
+                return AgentFn(
+                    lambda runtime, env: Agent.lamb_dynamic_ifc(
+                        model,
+                        runtime,
+                        env,
+                        lamb.labels.ADLabeler(env),
+                    )
+                )
+            case "lamb-static-ifc":
+                return AgentFn(
+                    lambda runtime, env: Agent.lamb_static_ifc(
+                        model,
+                        runtime,
+                        env,
+                        lamb.labels.ADLabeler(env),
+                    )
+                )
+            case _:
+                typing.assert_never(name)
 
 
 class ADAgentLoop(pipeline.BasePipelineElement):
@@ -380,7 +441,7 @@ class ADAgentLoop(pipeline.BasePipelineElement):
         Sequence[ad.ChatMessage],
         dict,
     ]:
-        agent = self.agent_fn(runtime, env)
+        agent = self.agent_fn.make(runtime, env)
         history, _ = agent.prompt(query)
         messages = [*messages, *(lamb.types.message_to_ad(msg) for msg in history)]
         return (

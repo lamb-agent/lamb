@@ -26,6 +26,15 @@ class OllamaModel(Enum):
     MISTRAL_LARGE_123B = "mistral-large:123b"
     GRANITE4 = "granite4:3b"
 
+    def nickname(self) -> str:
+        match self:
+            case OllamaModel.GEMMA4:
+                return "gemma4"
+            case OllamaModel.GPT_OSS_120B:
+                return "gpt-oss"
+            case _:
+                return self.name
+
 class OpenAIModel(Enum):
     GPT5_MINI = "gpt-5-mini-2025-08-07"
 
@@ -73,10 +82,11 @@ class LiveLlm(Llm):
     def ollama_openai(
         model: OllamaModel,
         reasoning: openai_types.ChatCompletionReasoningEffort = "high",
+        port: str = "11434",
     ) -> "LiveLlm":
         return LiveLlm(
             model.value,
-            base_url="http://localhost:11434/v1",
+            base_url=f"http://localhost:{port}/v1",
             api_key="ollama",
             reasoning=reasoning,
         )
