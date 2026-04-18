@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 import time
 import typing
 from dataclasses import dataclass

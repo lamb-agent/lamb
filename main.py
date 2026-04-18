@@ -18,7 +18,7 @@ def main(
     log_dir: str = ".log",
 ) -> None:
     m = llm.LiveLlm.ollama_openai(model, port=port)
-    assert agent in typing.get_args(AgentStr)
+    assert agent in typing.get_args(AgentStr.__value__)
     agent = typing.cast("AgentStr", agent)
     agent_fn = AgentFn.new(agent, m)
     bench.benchmark(
