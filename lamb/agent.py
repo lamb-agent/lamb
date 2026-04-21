@@ -1,3 +1,4 @@
+from enum import Enum
 import typing
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -357,13 +358,12 @@ def filter_tools(
     return [fn for fn in all_fns if fn.run in tools_set]
 
 
-type AgentStr = typing.Literal[
-    "single",
-    "dual",
-    "lamb-no-ifc",
-    "lamb-dynamic-ifc",
-    "lamb-static-ifc",
-]
+class AgentStr(Enum):
+    SINGLE = "single"
+    DUAL = "dual"
+    LAMB_NO_IFC = "lamb-no-ifc"
+    LAMB_DYNAMIC_IFC = "lamb-dynamic-ifc"
+    LAMB_STATIC_IFC = "lamb-static-ifc"
 
 
 @dataclass
@@ -373,7 +373,7 @@ class AgentFn:
     @staticmethod
     def new(name: AgentStr, model: lamb.llm.Llm) -> "AgentFn":
         match name:
-            case "single":
+            case AgentStr.SINGLE:
                 return AgentFn(
                     lambda runtime, env: Agent.single(
                         model,
@@ -381,7 +381,7 @@ class AgentFn:
                         env,
                     )
                 )
-            case "dual":
+            case AgentStr.DUAL:
                 return AgentFn(
                     lambda runtime, env: Agent.dual(
                         model,
@@ -389,7 +389,7 @@ class AgentFn:
                         env,
                     )
                 )
-            case "lamb-no-ifc":
+            case AgentStr.LAMB_NO_IFC:
                 return AgentFn(
                     lambda runtime, env: Agent.lamb_no_ifc(
                         model,
@@ -397,7 +397,7 @@ class AgentFn:
                         env,
                     )
                 )
-            case "lamb-dynamic-ifc":
+            case AgentStr.LAMB_DYNAMIC_IFC:
                 return AgentFn(
                     lambda runtime, env: Agent.lamb_dynamic_ifc(
                         model,
@@ -406,7 +406,7 @@ class AgentFn:
                         lamb.labels.ADLabeler(env),
                     )
                 )
-            case "lamb-static-ifc":
+            case AgentStr.LAMB_STATIC_IFC:
                 return AgentFn(
                     lambda runtime, env: Agent.lamb_static_ifc(
                         model,
