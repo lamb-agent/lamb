@@ -219,6 +219,8 @@ class IFCChecker:
         integ_permitted = source.integ.permitted_flow(sink.integ)
         do_hide: bool
         match (conf_permitted, integ_permitted, self.policy):
+            case (True, True, _):
+                do_hide = False
             case (False, True, IFCPolicy(conf="taint")):
                 self.model_context = self.model_context.set_conf(Confidentiality.HIGH)
                 self.on_model_context_change(self.model_context)
