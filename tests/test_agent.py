@@ -104,7 +104,7 @@ def test_single_empty() -> None:
     a = Agent.single(MockLlm(messages), runtime, env, labels.ADLabeler(env))
     history, label = a.prompt("")
     assert history[-1] == messages[-1]
-    assert label == ifc.IFCLabel.UH
+    assert label == ifc.IFCLabel.TL
 
 
 def test_single_tool_call() -> None:
@@ -122,13 +122,13 @@ def test_single_tool_call() -> None:
         error=None,
         tool_call_id=call_0.id,
         tool_call=call_0,
-        call_source="UH",
+        call_source="TL",
         call_sink="UH",
-        result_source="UH",
-        result_sink="UH",
+        result_source="TL",
+        result_sink="TL",
     )
     assert history[-1] == messages[-1]
-    assert label == ifc.IFCLabel.UH
+    assert label == ifc.IFCLabel.TL
 
 
 def test_slack_invite() -> None:

@@ -158,7 +158,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
                 ifc_checker=ifc_checker,
             ),
-            initial_label="",
+            initial_label="TL",
         )
 
     @staticmethod
@@ -204,7 +204,7 @@ class Agent:
                 ),
                 ifc_checker=ifc_checker,
             ),
-            initial_label="",
+            initial_label="TL",
         )
 
     @staticmethod
@@ -309,7 +309,7 @@ class Agent:
             identity=lamb.types.Identity.PRIVILEGED,
             system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
             make_core=lambda: make_core(model, functions_runtime, env, labeler),
-            initial_label="",
+            initial_label="TL",
         )
 
     @staticmethod

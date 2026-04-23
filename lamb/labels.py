@@ -263,4 +263,4 @@ class ADLabeler(ifc.Labeler):
         )
         filtered_tools = conf_tools.intersection(integ_tools).intersection(access_tools)
 
-        return [tool for tool in tools if tool in filtered_tools]
+        return [tool for tool in tools if tool.run in filtered_tools]
