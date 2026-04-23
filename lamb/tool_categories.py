@@ -377,6 +377,7 @@ LOW_CONF_SOURCE: set[typing.Callable] = {
     user_account.update_password,
     web.get_webpage,
     web.download_file,
+    web.post_webpage,
 }
 """Tools that return low confidentiality (public) information.
 This is also the case if the tool returns `None` or a static message."""
