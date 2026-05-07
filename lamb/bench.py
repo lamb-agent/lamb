@@ -12,10 +12,10 @@ import agentdojo.attacks
 import agentdojo.base_tasks
 import agentdojo.benchmark
 import agentdojo.task_suite
+from agentdojo.types import ChatMessage
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from lamb import agent, logging
-from lamb.types import ChatMessage
 
 # TODO: timestamp individual test runs
 
