@@ -1,6 +1,5 @@
 import agentdojo.functions_runtime as rt
 
-import lamb.formatter
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -19,7 +18,8 @@ def make_core(
         list(functions_runtime.functions.values()),
         ifc.ALL_TOOLS - {ifc.SystemAccess.PRIVILEGED},
     )
-    b_ifc_checker = ifc.IFCChecker.none_with_context(labeler, ifc.IFCLabel.UL)
+    # TODO: label should be decided dynamically
+    b_ifc_checker = ifc.IFCChecker.none_with_context(labeler, ifc.IFCLabel.UH)
     b_llm = Agent.bounded(
         model,
         system_prompt=lamb.prompts.B_LLM_NO_VARS_SYSTEM_PROMPT,

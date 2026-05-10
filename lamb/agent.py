@@ -176,7 +176,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.empty(),
                 ifc_checker=ifc_checker,
             ),
-            initial_label="",
+            initial_label="UH", # TODO: this should actually be passed as a parameter
             max_iters=2,  # we know it can't be more, because no tools are available
         )
 
