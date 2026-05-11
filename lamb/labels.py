@@ -77,7 +77,7 @@ def check_url(
 
 
 def check_banking_recipient(
-    recipient: str | None,
+    recipient: str | None = None,
     **_: object,
 ) -> ifc.Confidentiality:
     if recipient is None:
@@ -86,7 +86,7 @@ def check_banking_recipient(
 
 
 def check_event_participants(
-    participants: list[str] | None,
+    participants: list[str] | None = None,
     **_: object,
 ) -> ifc.Confidentiality:
     if participants is None:
@@ -107,9 +107,9 @@ def check_event_participants_in_event(
 def check_email(
     env: CloudDriveEnv,
     recipients: list[str],
-    cc: list[str] | None,
-    bcc: list[str] | None,
-    attachments: list[dict[str, str]] | None,
+    cc: list[str] | None = None,
+    bcc: list[str] | None = None,
+    attachments: list[dict[str, str]] | None = None,
     **_: object,
 ) -> ifc.Confidentiality:
     file_ids = []
