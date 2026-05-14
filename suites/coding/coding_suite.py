@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 from agentdojo.functions_runtime import FunctionCall, TaskEnvironment, make_function
 from agentdojo.task_suite import BaseInjectionTask, BaseUserTask, TaskSuite
 
@@ -7,7 +5,7 @@ from suites.coding import coding_tools
 
 
 class CodingEnv(TaskEnvironment):
-    inj: dict[str, str]
+    coding_client: coding_tools.CodingClient
 
     @staticmethod
     def with_injections(injections: dict[str, str]) -> "CodingEnv":
@@ -25,7 +23,13 @@ class CodingSuite(TaskSuite[CodingEnv]):
 
 
 TOOLS = [
-    coding_tools.return_injection,
+    coding_tools.list_repos,
+    coding_tools.init_repo,
+    coding_tools.checkout_repo,
+    coding_tools.create_pr,
+    coding_tools.bash,
+    coding_tools.search_skills,
+    coding_tools.learn_skill,
 ]
 
 CODING_SUITE_V1 = CodingSuite(
