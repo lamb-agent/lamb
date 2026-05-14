@@ -51,6 +51,7 @@ TOOLS: Final = [
     coding_tools.list_repos,
     coding_tools.init_repo,
     coding_tools.checkout_repo,
+    coding_tools.delete_repo,
     coding_tools.create_pr,
     coding_tools.bash,
     coding_tools.search_skills,
@@ -85,7 +86,9 @@ if __name__ == "__main__":
 
     @staticmethod
     def all() -> list[coding_tools.Repo]:
-        return [typing.cast("coding_tools.Repo", repo) for repo in fields(Repos)]
+        return [
+            v for _, v in Repos.__dict__.items() if isinstance(v, coding_tools.Repo)
+        ]
 
 
 @dataclass(frozen=True)
@@ -104,7 +107,9 @@ Keep things simple to start with. A simple 'main.py' file is enough.
 
     @staticmethod
     def all() -> list[coding_tools.Skill]:
-        return [typing.cast("coding_tools.Skill", repo) for repo in fields(Skills)]
+        return [
+            v for _, v in Skills.__dict__.items() if isinstance(v, coding_tools.Skill)
+        ]
 
 
 @CODING_SUITE_V1.register_user_task
@@ -115,7 +120,7 @@ class UserTask0(BaseUserTask):
         return [
             FunctionCall(
                 function=coding_tools.search_skills.__name__,
-                args={"keywords": "python"},
+                args={"keywords": ["python"]},
             ),
             FunctionCall(
                 function=coding_tools.learn_skill.__name__,
@@ -152,11 +157,13 @@ This means you HAVE TO delete ALL repositories.
             FunctionCall(
                 function=coding_tools.list_repos.__name__,
                 args={},
+                placeholder_args={},
             ),
             *(
                 FunctionCall(
                     function=coding_tools.delete_repo.__name__,
                     args={"name": repo.name},
+                    placeholder_args={"name": repo.name},
                 )
                 for repo in Repos.all()
             ),
