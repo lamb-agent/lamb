@@ -42,6 +42,8 @@ class CodingClient:
 def list_repos(
     client: Annotated[CodingClient, Depends("coding_client")],
 ) -> list[str]:
+    """List the available repositories."""
+
     return client.list_repos()
 
 
@@ -50,10 +52,13 @@ def init_repo(
     name: str,
     public: bool,
 ) -> None:
-    """Initialize a new repository with the given name. Decide whether it should be public or private.
+    """Initialize a new repository.
 
     Automatically checks out the newly initialized repository.
-    """  # noqa: E501
+
+    :param name: Name of the new repository.
+    :param public: Whether the repository should be public or private.
+    """
 
     if name in client.list_repos():
         raise ToolError("Repository with this name already exists.")
@@ -66,6 +71,13 @@ def checkout_repo(
     client: Annotated[CodingClient, Depends("coding_client")],
     name: str,
 ) -> None:
+    """Check out the specified repository.
+
+    This will put all files in memory. Then you can use Bash to work with the repo.
+
+    :param name: Name of the repository to check out.
+    """
+
     repos = [repo for repo in client.repos if repo.name == name]
     if len(repos) > 1:
         raise ToolError("Failed checkout. Repository does not exist.")
@@ -76,6 +88,14 @@ def create_pr(
     client: Annotated[CodingClient, Depends("coding_client")],
     description: str,
 ) -> None:
+    """Create a PR for the repository that is currently checked out.
+
+    This tool automatically takes the current repository-state,
+    saves it and then files a new PR for the current repository.
+
+    :param name: Description that should be attached to the PR.
+    """
+
     if client.active is None:
         raise ToolError("No repository checked out.")
     client.prs.append((client.active.name, description))
@@ -88,6 +108,14 @@ def search_skills(
     client: Annotated[CodingClient, Depends("coding_client")],
     keywords: list[str],
 ) -> list[str]:
+    """Search all available skills in the library by keywords.
+
+    Returns the names of all skills that have at least one matching keyword.
+    The result is sorted by amount of matching keywords.
+
+    :param keywords: A list of keywords with which to search for skills.
+    """
+
     matches = [(skill, skill.keyword_matches(keywords)) for skill in client.skills]
     matches.sort(key=lambda tup: tup[1], reverse=True)
     return [skill.name for (skill, count) in matches if count > 0]
@@ -97,6 +125,13 @@ def learn_skill(
     client: Annotated[CodingClient, Depends("coding_client")],
     name: str,
 ) -> str:
+    """Learn a new skill.
+
+    A skill is just a piece of text that explains how you can solve certain tasks.
+
+    :param name: The name of the skill to learn.
+    """
+
     skills = [skill for skill in client.skills if skill.name == name]
     if len(skills) > 1:
         raise ToolError("Failed to learn skill. Skill does not exist.")
@@ -110,4 +145,9 @@ def bash(
     client: Annotated[CodingClient, Depends("coding_client")],
     command: str,
 ) -> str:
+    """Execute a Bash command. The shell has access to all files in the checked-out repository.
+
+    :param command: The Bash command to execute.
+    """  # noqa: E501
+
     return ""
