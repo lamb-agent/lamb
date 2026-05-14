@@ -4,6 +4,7 @@ import typer
 
 from lamb import (
     bench,
+    labels,
     llm,
 )
 from lamb.agent import ADAgentLoop, AgentFn, AgentStr
@@ -17,7 +18,7 @@ def main(
     log_dir: str = ".log",
 ) -> None:
     m = llm.LiveLlm.ollama_openai(model, port=port)
-    agent_fn = AgentFn.new(agent, m)
+    agent_fn = AgentFn.new(agent, m, labels.ADLabeler)
     bench.benchmark(
         agent_loop=ADAgentLoop(agent_fn),
         model=m.model,

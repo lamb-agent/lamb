@@ -176,7 +176,7 @@ class Agent:
                 runtime=lamb.runtime.Runtime.empty(),
                 ifc_checker=ifc_checker,
             ),
-            initial_label="UH", # TODO: this should actually be passed as a parameter
+            initial_label="UH",  # TODO: this should actually be passed as a parameter
             max_iters=2,  # we know it can't be more, because no tools are available
         )
 
@@ -368,11 +368,15 @@ class AgentStr(Enum):
 
 
 @dataclass
-class AgentFn:
-    make: Callable[[rt.FunctionsRuntime, rt.TaskEnvironment], Agent]
+class AgentFn[Env: rt.TaskEnvironment]:
+    make: Callable[[rt.FunctionsRuntime, Env], Agent]
 
     @staticmethod
-    def new(name: AgentStr, model: lamb.llm.Llm) -> "AgentFn":
+    def new(
+        name: AgentStr,
+        model: lamb.llm.Llm,
+        labeler_fn: typing.Callable[[Env], lamb.ifc.Labeler],
+    ) -> "AgentFn[Env]":
         match name:
             case AgentStr.SINGLE:
                 return AgentFn(
@@ -380,7 +384,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
-                        lamb.labels.ADLabeler(env),
+                        labeler_fn(env),
                     )
                 )
             case AgentStr.DUAL:
@@ -389,7 +393,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
-                        lamb.labels.ADLabeler(env),
+                        labeler_fn(env),
                     )
                 )
             case AgentStr.LAMB_NO_IFC:
@@ -398,7 +402,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
-                        lamb.labels.ADLabeler(env),
+                        labeler_fn(env),
                     )
                 )
             case AgentStr.LAMB_DYNAMIC_IFC:
@@ -407,7 +411,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
-                        lamb.labels.ADLabeler(env),
+                        labeler_fn(env),
                     )
                 )
             case AgentStr.LAMB_STATIC_IFC:
@@ -416,7 +420,7 @@ class AgentFn:
                         model,
                         runtime,
                         env,
-                        lamb.labels.ADLabeler(env),
+                        labeler_fn(env),
                     )
                 )
             case _:
