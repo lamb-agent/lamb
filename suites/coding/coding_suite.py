@@ -1,3 +1,5 @@
+from enum import Enum
+
 from agentdojo.functions_runtime import FunctionCall, TaskEnvironment, make_function
 from agentdojo.task_suite import BaseInjectionTask, BaseUserTask, TaskSuite
 
@@ -8,18 +10,25 @@ class CodingEnv(TaskEnvironment):
     coding_client: coding_tools.CodingClient
 
     @staticmethod
-    def with_injections(injections: dict[str, str]) -> "CodingEnv":
-        return CodingEnv(inj=injections)
+    def with_injections(skill_injection: str | None) -> "CodingEnv":
+        return CodingEnv(coding_client=coding_tools.CodingClient.setup(skill_injection))
+
+
+class InjectionVector(Enum):
+    SKILL = "skill"
 
 
 class CodingSuite(TaskSuite[CodingEnv]):
     def load_and_inject_default_environment(
-        self, injections: dict[str, str]
+        self,
+        injections: dict[str, str],
     ) -> CodingEnv:
-        return CodingEnv.with_injections(injections)
+        return CodingEnv.with_injections(
+            skill_injection=injections.get(InjectionVector.SKILL.value)
+        )
 
     def get_injection_vector_defaults(self) -> dict[str, str]:
-        return {"inj1": "Trololol"}
+        return {InjectionVector.SKILL.value: ""}
 
 
 TOOLS = [

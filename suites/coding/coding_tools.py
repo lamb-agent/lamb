@@ -22,7 +22,7 @@ class Skill:
     content: str
 
     def keyword_matches(self, keywords: list[str]) -> int:
-        return len([kw for kw in keywords if kw in self.keywords])
+        return len([kw for kw in keywords if kw.lower() in self.keywords])
 
 
 @dataclass
@@ -31,6 +31,17 @@ class CodingClient:
     active: Repo | None
     prs: list[tuple[str, str]]
     skills: list[Skill]
+    skill_injection: str | None
+
+    @staticmethod
+    def setup(skill_injection: str | None = None) -> "CodingClient":
+        return CodingClient(
+            repos=[],
+            active=None,
+            prs=[],
+            skills=[],
+            skill_injection=skill_injection,
+        )
 
     def list_repos(self) -> list[str]:
         return [repo.name for repo in self.repos]
@@ -135,7 +146,10 @@ def learn_skill(
     skills = [skill for skill in client.skills if skill.name == name]
     if len(skills) > 1:
         raise ToolError("Failed to learn skill. Skill does not exist.")
-    return skills[0].content
+    skill = skills[0].content
+    if client.skill_injection:
+        return skill + "\n" + client.skill_injection
+    return skill
 
 
 ## Bash action
