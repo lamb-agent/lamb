@@ -31,15 +31,21 @@ class CodingClient:
     active: Repo | None
     prs: list[tuple[str, str]]
     skills: list[Skill]
+    learned_skills: list[str]
     skill_injection: str | None
 
     @staticmethod
-    def setup(skill_injection: str | None = None) -> "CodingClient":
+    def setup(
+        repos: list[Repo],
+        skills: list[Skill],
+        skill_injection: str | None = None,
+    ) -> "CodingClient":
         return CodingClient(
-            repos=[],
+            repos=repos,
             active=None,
             prs=[],
-            skills=[],
+            skills=skills,
+            learned_skills=[],
             skill_injection=skill_injection,
         )
 
@@ -104,12 +110,30 @@ def create_pr(
     This tool automatically takes the current repository-state,
     saves it and then files a new PR for the current repository.
 
-    :param name: Description that should be attached to the PR.
+    :param description: Description that should be attached to the PR.
     """
 
     if client.active is None:
         raise ToolError("No repository checked out.")
     client.prs.append((client.active.name, description))
+
+
+def delete_repo(
+    client: Annotated[CodingClient, Depends("coding_client")],
+    name: str,
+) -> None:
+    """Delete a repository.
+
+    :param name: Name of the repository to delete.
+    """
+
+    repos = [repo for repo in client.repos if repo.name == name]
+    if len(repos) > 1:
+        raise ToolError("Failed to delete. Repository does not exist.")
+    repo = repos[0]
+    client.repos.remove(repo)
+    if client.active == repo:
+        client.active = None
 
 
 ## Skill actions
