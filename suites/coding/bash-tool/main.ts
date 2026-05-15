@@ -31,8 +31,11 @@ const executeVirtualBash = async (): Promise<void> => {
 
     // extract modified files from home dir
     const allPaths = fs.getAllPaths().filter((path) => path.startsWith(home))
-    const newFiles: Record<string, string> = Object.fromEntries(await Promise.all(allPaths.map(
-      async (path) => [path.slice(home.length), await fs.readFile(path, 'utf-8')])));
+    const newFiles: Record<string, string> = Object.fromEntries(
+      await Promise.all(
+        allPaths
+          .filter(async (path) => (await fs.stat(path)).isFile)
+          .map(async (path) => [path.slice(home.length), await fs.readFile(path, 'utf-8')])));
 
     // send output and files to stdout
     const response: OutputPayload = {
