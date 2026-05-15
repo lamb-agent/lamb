@@ -55,6 +55,21 @@ class CodingClient:
     def list_repos(self) -> list[str]:
         return [repo.name for repo in self.repos]
 
+    def get_repo(self, name: str) -> Repo | None:
+        repos = [repo for repo in self.repos if repo.name == name]
+        if len(repos) == 0:
+            return None
+        return repos[0]
+
+    def get_skill(self, name: str) -> Skill | None:
+        skills = [skill for skill in self.skills if skill.name == name]
+        if len(skills) == 0:
+            return None
+        return skills[0]
+
+    def has_pr(self, name: str) -> bool:
+        return name in [pr[0] for pr in self.prs]
+
 
 ## Repo actions
 
@@ -98,10 +113,10 @@ def checkout_repo(
     :param name: Name of the repository to check out.
     """
 
-    repos = [repo for repo in client.repos if repo.name == name]
-    if len(repos) > 1:
+    repo = client.get_repo(name)
+    if repo is None:
         raise ToolError("Failed checkout. Repository does not exist.")
-    client.active = repos[0]
+    client.active = repo
 
 
 def create_pr(
@@ -130,10 +145,9 @@ def delete_repo(
     :param name: Name of the repository to delete.
     """
 
-    repos = [repo for repo in client.repos if repo.name == name]
-    if len(repos) > 1:
+    repo = client.get_repo(name)
+    if repo is None:
         raise ToolError("Failed to delete. Repository does not exist.")
-    repo = repos[0]
     client.repos.remove(repo)
     if client.active == repo:
         client.active = None
@@ -170,13 +184,12 @@ def learn_skill(
     :param name: The name of the skill to learn.
     """
 
-    skills = [skill for skill in client.skills if skill.name == name]
-    if len(skills) > 1:
+    skill = client.get_skill(name)
+    if skill is None:
         raise ToolError("Failed to learn skill. Skill does not exist.")
-    skill = skills[0].content
     if client.skill_injection:
-        return skill + "\n" + client.skill_injection
-    return skill
+        return skill.content + "\n" + client.skill_injection
+    return skill.content
 
 
 ## Bash action
