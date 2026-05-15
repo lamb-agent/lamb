@@ -33,9 +33,13 @@ const executeVirtualBash = async (): Promise<void> => {
     const allPaths = fs.getAllPaths().filter((path) => path.startsWith(home))
     const newFiles: Record<string, string> = Object.fromEntries(
       await Promise.all(
-        allPaths
-          .filter(async (path) => (await fs.stat(path)).isFile)
-          .map(async (path) => [path.slice(home.length), await fs.readFile(path, 'utf-8')])));
+        allPaths.map(async (path) => {
+          const stats = await fs.stat(path);
+          if (!stats.isFile) return null; // Filter out directories
+          return [path.slice(home.length), await fs.readFile(path, 'utf-8')];
+        })
+      ).then(results => results.filter((entry): entry is [string, string] => entry !== null))
+    );
 
     // send output and files to stdout
     const response: OutputPayload = {
