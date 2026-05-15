@@ -369,58 +369,58 @@ class AgentStr(Enum):
 
 @dataclass
 class AgentFn[Env: rt.TaskEnvironment]:
-    make: Callable[[rt.FunctionsRuntime, Env], Agent]
+    make: Callable[[lamb.types.Suite, rt.FunctionsRuntime, Env], Agent]
 
     @staticmethod
     def new(
         name: AgentStr,
         model: lamb.llm.Llm,
-        labeler_fn: typing.Callable[[Env], lamb.ifc.Labeler],
+        labeler_fn: typing.Callable[[lamb.types.Suite, Env], lamb.ifc.Labeler],
     ) -> "AgentFn[Env]":
         match name:
             case AgentStr.SINGLE:
                 return AgentFn(
-                    lambda runtime, env: Agent.single(
+                    lambda suite, runtime, env: Agent.single(
                         model,
                         runtime,
                         env,
-                        labeler_fn(env),
+                        labeler_fn(suite, env),
                     )
                 )
             case AgentStr.DUAL:
                 return AgentFn(
-                    lambda runtime, env: Agent.dual(
+                    lambda suite, runtime, env: Agent.dual(
                         model,
                         runtime,
                         env,
-                        labeler_fn(env),
+                        labeler_fn(suite, env),
                     )
                 )
             case AgentStr.LAMB_NO_IFC:
                 return AgentFn(
-                    lambda runtime, env: Agent.lamb_no_ifc(
+                    lambda suite, runtime, env: Agent.lamb_no_ifc(
                         model,
                         runtime,
                         env,
-                        labeler_fn(env),
+                        labeler_fn(suite, env),
                     )
                 )
             case AgentStr.LAMB_DYNAMIC_IFC:
                 return AgentFn(
-                    lambda runtime, env: Agent.lamb_dynamic_ifc(
+                    lambda suite, runtime, env: Agent.lamb_dynamic_ifc(
                         model,
                         runtime,
                         env,
-                        labeler_fn(env),
+                        labeler_fn(suite, env),
                     )
                 )
             case AgentStr.LAMB_STATIC_IFC:
                 return AgentFn(
-                    lambda runtime, env: Agent.lamb_static_ifc(
+                    lambda suite, runtime, env: Agent.lamb_static_ifc(
                         model,
                         runtime,
                         env,
-                        labeler_fn(env),
+                        labeler_fn(suite, env),
                     )
                 )
             case _:
@@ -431,9 +431,11 @@ class ADAgentLoop(pipeline.BasePipelineElement):
     """Wrap an agent as a BasePipelineElement."""
 
     agent_fn: AgentFn
+    suite: lamb.types.Suite
 
-    def __init__(self, agent_fn: AgentFn) -> None:
+    def __init__(self, agent_fn: AgentFn, suite: lamb.types.Suite) -> None:
         self.agent_fn = agent_fn
+        self.suite = suite
 
     def query(
         self,
@@ -449,7 +451,7 @@ class ADAgentLoop(pipeline.BasePipelineElement):
         Sequence[ad.ChatMessage],
         dict,
     ]:
-        agent = self.agent_fn.make(runtime, env)
+        agent = self.agent_fn.make(self.suite, runtime, env)
         history, _ = agent.prompt(query)
         messages = [*messages, *(lamb.types.message_to_ad(msg) for msg in history)]
         return (

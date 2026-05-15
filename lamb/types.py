@@ -22,7 +22,7 @@ class Formatter(Protocol):
         self,
         tool: rt.Function,
         result: rt.FunctionReturnType,
-    ) -> tuple[str, str, str]: ... # TODO: update label type
+    ) -> tuple[str, str, str]: ...  # TODO: update label type
     def expand(
         self,
         tool: rt.Function,
@@ -40,6 +40,14 @@ class Identity(Enum):
 type Role = typing.Literal["user", "assistant", "tool"]
 
 type IFCLabelStr = typing.Literal["TL", "UL", "TH", "UH", ""]
+
+
+class Suite(Enum):
+    BANKING = "banking"
+    TRAVEL = "travel"
+    SLACK = "slack"
+    WORKSPACE = "workspace"
+    CODING = "coding"
 
 
 @dataclass
@@ -130,7 +138,7 @@ class UserMessage:
 class AssistantMessage:
     content: str
     tool_calls: list[FunctionCall]
-    label: str # TODO: update those to ifc label type
+    label: str  # TODO: update those to ifc label type
     role: typing.Literal["assistant"] = "assistant"
 
 
@@ -185,10 +193,10 @@ def message_to_ad(message: ChatMessage) -> ad.ChatMessage:
                 tool_call_id=tool_call_id,
                 error=error,
             )
-            tool_message["call_source"] = call_source # type: ignore
-            tool_message["call_sink"] = call_sink # type: ignore
-            tool_message["result_source"] = result_source # type: ignore
-            tool_message["result_sink"] = result_sink # type: ignore
+            tool_message["call_source"] = call_source  # type: ignore
+            tool_message["call_sink"] = call_sink  # type: ignore
+            tool_message["result_source"] = result_source  # type: ignore
+            tool_message["result_sink"] = result_sink  # type: ignore
             if history:
                 # it's just a dict, we can append the history for logging
                 tool_message["history"] = history  # type: ignore
@@ -206,7 +214,7 @@ def make_user_prompt(prompt: str, label: str) -> ChatMessage:
 
 
 def make_assistant_prompt(prompt: str) -> ChatMessage:
-    return AssistantMessage(prompt, [], "") # TODO: proper value
+    return AssistantMessage(prompt, [], "")  # TODO: proper value
 
 
 def get_response(history: list[ChatMessage]) -> str:

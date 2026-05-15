@@ -15,7 +15,9 @@ import agentdojo.task_suite
 from agentdojo.types import ChatMessage
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from lamb import agent, logging
+import lamb.agent
+import lamb.types
+from lamb import logging
 
 # TODO: timestamp individual test runs
 
@@ -495,7 +497,7 @@ def benchmark_suite(
 
 
 def benchmark(
-    agent_loop: agent.ADAgentLoop,
+    agent_fn: lamb.agent.AgentFn,
     agent: str,
     model: str,
     log_dir: Path = Path(".log"),
@@ -519,7 +521,9 @@ def benchmark(
     suite_results = {}
     for suite_name, suite in suites_to_run.items():
         logging.debug(f"Executing suite {suite_name}")
-        agent_pipeline = pipeline.AgentPipeline([agent_loop])
+        agent_pipeline = pipeline.AgentPipeline(
+            [lamb.agent.ADAgentLoop(agent_fn, lamb.types.Suite(suite_name))]
+        )
         agent_pipeline.name = f"local_{agent}_{model}"
         """`local` needs to be part of the agent pipeline name attribute
         in order for some AD attacks to run that need to fetch the model name

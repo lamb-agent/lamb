@@ -1,13 +1,16 @@
 from pathlib import Path
 
 import typer
+from agentdojo.task_suite import register_suite
 
 from lamb import (
     bench,
     labels,
     llm,
 )
-from lamb.agent import ADAgentLoop, AgentFn, AgentStr
+from lamb.agent import AgentFn, AgentStr
+from lamb.types import Suite
+from suites.coding import coding_labeler, coding_suite
 
 
 def main(
@@ -16,16 +19,26 @@ def main(
     run: str | None = None,
     model: llm.OllamaModel = llm.OllamaModel.GEMMA4,
     log_dir: str = ".log",
+    suites: list[Suite] = [Suite.WORKSPACE, Suite.BANKING, Suite.TRAVEL, Suite.SLACK],  # noqa: B006
 ) -> None:
+    register_suite(coding_suite.CODING_SUITE_V1, "v1.2")
     m = llm.LiveLlm.ollama_openai(model, port=port)
-    agent_fn = AgentFn.new(agent, m, labels.ADLabeler)
+    agent_fn = AgentFn.new(
+        agent,
+        m,
+        lambda suite, env: (
+            coding_labeler.CodingLabeler(env)
+            if suite == Suite.CODING
+            else labels.ADLabeler(env)
+        ),
+    )
     bench.benchmark(
-        agent_loop=ADAgentLoop(agent_fn),
+        agent_fn=agent_fn,
         model=m.model,
         agent=f"local-{agent.value}-{model.nickname()}{'' if not run else f'r{run}'}",
         log_dir=Path(log_dir),
         attack="tool_knowledge",
-        suites=None,
+        suites=[suite.value for suite in suites],
         user_tasks=None,
         injection_tasks=None,
         suite_version="v1.2",
