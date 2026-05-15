@@ -12,7 +12,6 @@ from openai.types.chat.completion_create_params import ResponseFormat
 import lamb.controller
 import lamb.formatter
 import lamb.ifc
-import lamb.labels
 import lamb.llm
 import lamb.prompts
 import lamb.query_llm
@@ -147,13 +146,14 @@ class Agent:
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
+        suite: lamb.types.Suite,
     ) -> "Agent":
         ifc_checker = lamb.ifc.IFCChecker.none(labeler)
         return Agent(
             name="single",
             model=model,
             identity=lamb.types.Identity.SINGLE,
-            system_prompt=lamb.prompts.SINGLE_LLM_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.SINGLE_LLM_SYSTEM_PROMPT + suite.suite_prompt(),
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime.default(functions_runtime, env),
                 ifc_checker=ifc_checker,
@@ -186,6 +186,7 @@ class Agent:
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
+        suite: lamb.types.Suite,
     ) -> "Agent":
         q_llm = Agent.quarantined(model, labeler)
         query_llm = lamb.query_llm.make_query_llm_fn_with_agent(q_llm)
@@ -197,7 +198,8 @@ class Agent:
             name="dual-privileged",
             model=model,
             identity=lamb.types.Identity.PRIVILEGED,
-            system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT
+            + suite.suite_prompt(),
             make_core=lambda: AgentCore(
                 runtime=lamb.runtime.Runtime(
                     functions_runtime, env, [query_llm, query_llm_structured]
@@ -213,6 +215,7 @@ class Agent:
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
+        suite: lamb.types.Suite,
     ) -> "Agent":
         from lamb.cores.dual_ifc import make_core  # noqa: PLC0415
 
@@ -220,7 +223,7 @@ class Agent:
             name="dual-ifc-privileged",
             model=model,
             identity=lamb.types.Identity.PRIVILEGED,
-            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT + suite.suite_prompt(),
             make_core=lambda: make_core(
                 model,
                 functions_runtime,
@@ -237,6 +240,7 @@ class Agent:
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
+        suite: lamb.types.Suite,
     ) -> "Agent":
         from lamb.cores.dual_ifc import make_core  # noqa: PLC0415
 
@@ -244,7 +248,7 @@ class Agent:
             name="dual-ifc-privileged",
             model=model,
             identity=lamb.types.Identity.PRIVILEGED,
-            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT + suite.suite_prompt(),
             make_core=lambda: make_core(
                 model,
                 functions_runtime,
@@ -288,6 +292,7 @@ class Agent:
             name="lamb-bounded",
             model=model,
             identity=lamb.types.Identity.BOUNDED,
+            # TODO: should we add suite prompts here as well?
             system_prompt=system_prompt,
             make_core=make_core,
             initial_label=initial_label,
@@ -300,6 +305,7 @@ class Agent:
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
+        suite: lamb.types.Suite,
     ) -> "Agent":
         from lamb.cores.lamb_no_ifc import make_core  # noqa: PLC0415
 
@@ -307,7 +313,8 @@ class Agent:
             name="lamb-no-ifc-privileged",
             model=model,
             identity=lamb.types.Identity.PRIVILEGED,
-            system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_NO_IFC_SYSTEM_PROMPT
+            + suite.suite_prompt(),
             make_core=lambda: make_core(model, functions_runtime, env, labeler),
             initial_label="TL",
         )
@@ -318,6 +325,7 @@ class Agent:
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
+        suite: lamb.types.Suite,
     ) -> "Agent":
         from lamb.cores.lamb_dynamic_ifc import make_core  # noqa: PLC0415
 
@@ -325,7 +333,7 @@ class Agent:
             name="lamb-dynamic-ifc-privileged",
             model=model,
             identity=lamb.types.Identity.PRIVILEGED,
-            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT + suite.suite_prompt(),
             make_core=lambda: make_core(
                 model,
                 functions_runtime,
@@ -341,6 +349,7 @@ class Agent:
         functions_runtime: rt.FunctionsRuntime,
         env: rt.TaskEnvironment,
         labeler: lamb.ifc.Labeler,
+        suite: lamb.types.Suite,
     ) -> "Agent":
         from lamb.cores.lamb_static_ifc import make_core  # noqa: PLC0415
 
@@ -348,7 +357,7 @@ class Agent:
             name="lamb-static-ifc-privileged",
             model=model,
             identity=lamb.types.Identity.PRIVILEGED,
-            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT,
+            system_prompt=lamb.prompts.P_LLM_IFC_SYSTEM_PROMPT + suite.suite_prompt(),
             make_core=lambda: make_core(
                 model,
                 functions_runtime,
@@ -385,6 +394,7 @@ class AgentFn[Env: rt.TaskEnvironment]:
                         runtime,
                         env,
                         labeler_fn(suite, env),
+                        suite,
                     )
                 )
             case AgentStr.DUAL:
@@ -394,6 +404,7 @@ class AgentFn[Env: rt.TaskEnvironment]:
                         runtime,
                         env,
                         labeler_fn(suite, env),
+                        suite,
                     )
                 )
             case AgentStr.LAMB_NO_IFC:
@@ -403,6 +414,7 @@ class AgentFn[Env: rt.TaskEnvironment]:
                         runtime,
                         env,
                         labeler_fn(suite, env),
+                        suite,
                     )
                 )
             case AgentStr.LAMB_DYNAMIC_IFC:
@@ -412,6 +424,7 @@ class AgentFn[Env: rt.TaskEnvironment]:
                         runtime,
                         env,
                         labeler_fn(suite, env),
+                        suite,
                     )
                 )
             case AgentStr.LAMB_STATIC_IFC:
@@ -421,6 +434,7 @@ class AgentFn[Env: rt.TaskEnvironment]:
                         runtime,
                         env,
                         labeler_fn(suite, env),
+                        suite,
                     )
                 )
             case _:

@@ -8,6 +8,8 @@ import agentdojo.functions_runtime as rt
 import agentdojo.types as ad
 from openai.types.shared_params import ResponseFormatText
 
+from suites.coding import coding_suite
+
 type CallLLM = Callable[[list[ChatMessage]], ChatMessage]
 type CallTools = Callable[[list[FunctionCall]], list[ChatMessage]]
 type Args = Mapping[str, FunctionCallArgTypes]
@@ -48,6 +50,15 @@ class Suite(Enum):
     SLACK = "slack"
     WORKSPACE = "workspace"
     CODING = "coding"
+
+    def suite_prompt(self) -> str:
+        match self:
+            case Suite.CODING:
+                return coding_suite.CodingSuite.suite_instructions
+            case _:
+                # TODO: In case we re-run the bences,
+                # we should add dedicated suite prompts
+                return ""
 
 
 @dataclass
