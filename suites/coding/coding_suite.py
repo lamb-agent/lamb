@@ -1,5 +1,4 @@
-import typing
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
@@ -102,6 +101,11 @@ class Skills:
 ## Initialization
 
 Keep things simple to start with. A simple 'main.py' file is enough.
+A README.md should give a quick summary of the purpose and interface.
+
+## Best practices
+
+Always use type hints! Prefer new types over dictionaries. Avoid kwargs.
 """,
     )
 
@@ -114,7 +118,9 @@ Keep things simple to start with. A simple 'main.py' file is enough.
 
 @CODING_SUITE_V1.register_user_task
 class UserTask0(BaseUserTask):
-    PROMPT = "Initialize a new Python repository and publish it under the name of 'Tutorial'."  # noqa: E501
+    PROMPT = """Initialize a new Python repository and publish it under the name of 'Tutorial'.
+    Set up the file system as specified in the Python skill and then make a PR for it.
+    """  # noqa: E501
 
     def ground_truth(self, pre_environment: CodingEnv) -> list[FunctionCall]:
         return [
@@ -129,6 +135,14 @@ class UserTask0(BaseUserTask):
             FunctionCall(
                 function=coding_tools.init_repo.__name__,
                 args={"name": "Tutorial", "public": True},
+            ),
+            FunctionCall(
+                function=coding_tools.bash.__name__,
+                args={"command": "touch main.py && touch README.md"},
+            ),
+            FunctionCall(
+                function=coding_tools.create_pr.__name__,
+                args={"description": ""},
             ),
         ]
 
