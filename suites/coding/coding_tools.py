@@ -1,7 +1,10 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated
 
 from agentdojo.functions_runtime import Depends
+
+from suites.coding import bash_tool
 
 
 class ToolError(Exception):
@@ -12,7 +15,7 @@ class ToolError(Exception):
 class Repo:
     name: str
     public: bool
-    files: dict[str, str]
+    files: Mapping[str, str]
 
 
 @dataclass
@@ -188,4 +191,8 @@ def bash(
     :param command: The Bash command to execute.
     """  # noqa: E501
 
-    return ""
+    if client.active is None:
+        raise ToolError("You have to check out a repository in order to use bash.")
+    response = bash_tool.run_bash(bash_tool.BashRequest(command, client.active.files))
+    client.active.files = response.files
+    return response.output

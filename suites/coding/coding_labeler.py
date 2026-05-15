@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from agentdojo import functions_runtime as rt
 
 from lamb import ifc, query_llm, types
-from suites.coding import coding_tools
-from suites.coding import coding_suite
+from suites.coding import coding_suite, coding_tools
 from suites.coding.coding_suite import CodingEnv
 
 TRUSTED_SOURCE: set[typing.Callable] = {
