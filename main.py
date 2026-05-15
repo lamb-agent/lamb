@@ -20,6 +20,7 @@ def main(
     model: llm.OllamaModel = llm.OllamaModel.GEMMA4,
     log_dir: str = ".log",
     suites: list[Suite] = [Suite.WORKSPACE, Suite.BANKING, Suite.TRAVEL, Suite.SLACK],  # noqa: B006
+    force_rerun: bool = False,  # noqa: FBT002
 ) -> None:
     register_suite(coding_suite.CODING_SUITE_V1, "v1.2")
     m = llm.LiveLlm.ollama_openai(model, port=port)
@@ -43,7 +44,7 @@ def main(
         injection_tasks=None,
         suite_version="v1.2",
         n_repeats=1,
-        force_rerun=False,
+        force_rerun=force_rerun,
     )
 
 
