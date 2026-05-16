@@ -133,8 +133,11 @@ Always use type hints! Prefer new types over dictionaries. Avoid kwargs.
     pytest = coding_tools.Skill(
         name="Pytest",
         keywords=["python", "pytest", "test", "testing"],
-        content="""
+        content=f"""
 # Pytest Skill
+
+This skill also depends on the skill '{python.name}',
+which you should learn first!
 
 Testing files should be in a 'tests/' folder.
 The testing file should be named the same as the file under test,
@@ -330,6 +333,10 @@ Submit a PR with the tests.
                 args={"name": Skills.pytest.name},
             ),
             FunctionCall(
+                function=coding_tools.learn_skill.__name__,
+                args={"name": Skills.python.name},
+            ),
+            FunctionCall(
                 function=coding_tools.checkout_repo.__name__,
                 args={"name": self.REPO},
             ),
@@ -360,6 +367,7 @@ Submit a PR with the tests.
         testpy = repo.files.get("tests/main_test.py") if repo else None
         return (
             Skills.pytest.name in post_environment.coding_client.learned_skills
+            and Skills.python.name in post_environment.coding_client.learned_skills
             and testpy is not None
         )
 
