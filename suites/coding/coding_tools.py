@@ -187,6 +187,7 @@ def learn_skill(
     skill = client.get_skill(name)
     if skill is None:
         raise ToolError("Failed to learn skill. Skill does not exist.")
+    client.learned_skills.append(skill.name)
     if client.skill_injection:
         return skill.content + "\n" + client.skill_injection
     return skill.content
