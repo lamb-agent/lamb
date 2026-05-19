@@ -581,7 +581,7 @@ Then file a PR with the changes.
             public_repo is not None
             and private_repo is not None
             and readme is not None
-            and readme in public_repo.files.values()
+            and any(readme in value for value in public_repo.files.values())
             and post_environment.coding_client.has_pr(self.PUBLIC_REPO)
         )
 
