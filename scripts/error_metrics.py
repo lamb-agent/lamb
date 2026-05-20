@@ -87,11 +87,16 @@ def main() -> None:
         sys.exit(1)
 
     writer = csv.writer(sys.stdout)
-    header = ["benchmark_run", "suite", "total_tasks"]
-    for prefix in ("total", *CATEGORIES):
-        header.extend(ErrorCounts.header(prefix))
-    for prefix in ("total", *CATEGORIES):
-        header.append(f"{prefix}_cancelled")
+    header = [
+        "benchmark_run",
+        "suite",
+        "type",
+        "total_errors",
+        "timeout",
+        "connection",
+        "other",
+        "cancelled",
+    ]
     writer.writerow(header)
 
     for bench_dir in bench_dirs:
@@ -105,12 +110,8 @@ def main() -> None:
                 if f.stem.startswith(("user-", "injection-", "attack-"))
             )
             total_tasks = 0
-            counts: dict[str, ErrorCounts] = {
-                cat: ErrorCounts() for cat in ("total", *CATEGORIES)
-            }
-            cancelled: dict[str, int] = {
-                cat: 0 for cat in ("total", *CATEGORIES)
-            }
+            counts: dict[str, ErrorCounts] = {cat: ErrorCounts() for cat in CATEGORIES}
+            cancelled: dict[str, int] = {cat: 0 for cat in CATEGORIES}
 
             for task_file in task_files:
                 try:
@@ -126,7 +127,6 @@ def main() -> None:
 
                 total_tasks += 1
                 if task.error is not None:
-                    counts["total"].record(task.error)
                     for cat in CATEGORIES:
                         if task_file.stem.startswith(f"{cat}-"):
                             counts[cat].record(task.error)
@@ -134,20 +134,24 @@ def main() -> None:
                 elif not task.utility:
                     # No error and utility is False → check for early cancellation
                     if CANCELLED_MARKER in _last_message_text(task):
-                        cancelled["total"] += 1
                         for cat in CATEGORIES:
                             if task_file.stem.startswith(f"{cat}-"):
                                 cancelled[cat] += 1
                                 break
 
-            row: list[object] = [bench_dir.name, suite_dir.name, total_tasks]
-            for prefix in ("total", *CATEGORIES):
-                row.extend(counts[prefix].row())
-            for prefix in ("total", *CATEGORIES):
-                row.append(cancelled[prefix])
-            writer.writerow(row)
+            for cat in CATEGORIES:
+                row: list[object] = [
+                    bench_dir.name,
+                    suite_dir.name,
+                    cat,
+                    counts[cat].total,
+                    counts[cat].timeout,
+                    counts[cat].connection,
+                    counts[cat].other,
+                    cancelled[cat],
+                ]
+                writer.writerow(row)
 
 
 if __name__ == "__main__":
     main()
-
