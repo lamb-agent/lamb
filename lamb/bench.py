@@ -327,8 +327,9 @@ def load_task_results(
                 continue
             with file.open() as test_file:
                 res_dict = load(test_file)
-                if not TaskResults(**res_dict).error:
-                    return TaskResults(**res_dict)
+                task_result = TaskResults(**res_dict)
+                if not task_result.error or "timed out" in task_result.error:
+                    return task_result
 
     return None
 
