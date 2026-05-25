@@ -504,6 +504,7 @@ def test_pr_lamb() -> None:
     )
     history, _ = a.prompt(user_prompt)
     # assert history[-1].content == user_response
+    dump("example/pr_lamb.json", history)
 
 
 def test_pr_attack_lamb() -> None:
@@ -554,6 +555,7 @@ def test_pr_attack_lamb() -> None:
     history, _ = a.prompt(user_prompt)
     # TODO: clean this whole mess up a bit
     # assert history[-1].content == user_response
+    dump("example/pr_lamb_attack.json", history)
 
 
 def test_pr_dual() -> None:
@@ -604,6 +606,7 @@ def test_pr_dual() -> None:
     # assert history[-1].content == user_response.replace(
     #     "<query_llm_0/>", query_review_response
     # )
+    dump("example/pr_dual.json", history)
 
 
 def test_pr_fides() -> None:
@@ -670,6 +673,7 @@ def test_pr_fides() -> None:
 
     logging.info("")
     logging.log_messages(types.Identity.PRIVILEGED, history)
+    dump("example/pr_fides.json", history)
 
 
 def test_article_summary_dual() -> None:
@@ -703,7 +707,8 @@ def test_article_summary_dual() -> None:
         labels.ADLabeler(env),
         types.Suite.SLACK,
     )
-    a.run(user_prompt)
+    history, _ = a.prompt(user_prompt)
+    dump("example/article_summary_dual.json", history)
 
 
 def test_article_summary_fides() -> None:
@@ -772,6 +777,7 @@ def test_article_summary_fides() -> None:
     ]
 
     logging.log_messages(types.Identity.PRIVILEGED, history)
+    dump("example/article_summary_fides.json", history)
 
 
 def test_article_summary_lamb() -> None:
@@ -810,4 +816,5 @@ def test_article_summary_lamb() -> None:
         labels.ADLabeler(env),
         types.Suite.SLACK,
     )
-    a.run(user_prompt)
+    history, _ = a.prompt(user_prompt)
+    dump("example/article_summary_lamb.json", history)
