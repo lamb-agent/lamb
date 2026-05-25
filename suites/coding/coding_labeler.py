@@ -170,8 +170,8 @@ class CodingLabeler(ifc.Labeler):
         tool_filters: set[ifc.ToolFilter],
     ) -> types.Tools:
         conf_tools = ARG_CONF_SINK.union(
-            HIGH_CONF_SINK if ifc.Confidentiality.HIGH in tool_filters else set()
-        )
+            LOW_CONF_SINK if ifc.Confidentiality.LOW in tool_filters else set()
+        ).union(HIGH_CONF_SINK if ifc.Confidentiality.HIGH in tool_filters else set())
         integ_tools = (
             TRUSTED_SINK if ifc.Integrity.TRUSTED in tool_filters else set()
         ).union(UNTRUSTED_SINK if ifc.Integrity.UNTRUSTED in tool_filters else set())
