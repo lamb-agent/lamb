@@ -101,7 +101,13 @@ def assistant_msg(msg: str, label: str = "") -> types.AssistantMessage:
 def test_single_empty() -> None:
     messages: list[types.ChatMessage] = [types.AssistantMessage("content", [], "")]
     runtime, env = empty_rt()
-    a = Agent.single(MockLlm(messages), runtime, env, labels.ADLabeler(env))
+    a = Agent.single(
+        MockLlm(messages),
+        runtime,
+        env,
+        labels.ADLabeler(env),
+        types.Suite.WORKSPACE,
+    )
     history, label = a.prompt("")
     assert history[-1] == messages[-1]
     assert label == ifc.IFCLabel.TL
@@ -114,7 +120,13 @@ def test_single_tool_call() -> None:
         tool_call_msg(call_0, ""),
         assistant_msg("content"),
     ]
-    a = Agent.single(MockLlm(messages), runtime, env, labels.ADLabeler(env))
+    a = Agent.single(
+        MockLlm(messages),
+        runtime,
+        env,
+        labels.ADLabeler(env),
+        types.Suite.WORKSPACE,
+    )
     history, label = a.prompt("")
     assert history[-3] == messages[-2]
     assert history[-2] == types.ToolMessage(
@@ -148,6 +160,7 @@ def test_slack_invite() -> None:
         runtime,
         env,
         labels.ADLabeler(env),
+        types.Suite.SLACK,
     )
     _, _ = a.prompt("Invite Fred (fred@gmail.com) to slack")
     assert fred in env.slack.users
@@ -176,6 +189,7 @@ def test_argument_validation() -> None:
         runtime,
         env,
         labels.ADLabeler(env),
+        types.Suite.SLACK,
     )
     history, _ = a.prompt("Send an email to paul@gmail.com with a bad attachment")
     prev_msg = history[-2]
@@ -304,7 +318,13 @@ def agent_fn_dual(
     env: rt.TaskEnvironment,
     messages: list[types.ChatMessage],
 ) -> Agent:
-    return Agent.dual(MockLlm(messages), runtime, env, labels.ADLabeler(env))
+    return Agent.dual(
+        MockLlm(messages),
+        runtime,
+        env,
+        labels.ADLabeler(env),
+        types.Suite.WORKSPACE,
+    )
 
 
 def test_meeting_notes_no_attack_dual() -> None:
@@ -326,7 +346,13 @@ def agent_fn_lamb(
     env: rt.TaskEnvironment,
     messages: list[types.ChatMessage],
 ) -> Agent:
-    return Agent.lamb_static_ifc(MockLlm(messages), runtime, env, labels.ADLabeler(env))
+    return Agent.lamb_static_ifc(
+        MockLlm(messages),
+        runtime,
+        env,
+        labels.ADLabeler(env),
+        types.Suite.WORKSPACE,
+    )
 
 
 def test_meeting_notes_no_attack_lamb() -> None:
@@ -452,6 +478,7 @@ def test_pr_lamb() -> None:
         runtime,
         env,
         labels.ADLabeler(env),
+        types.Suite.SLACK,
     )
     history, _ = a.prompt(user_prompt)
     # assert history[-1].content == user_response
@@ -500,6 +527,7 @@ def test_pr_attack_lamb() -> None:
         runtime,
         env,
         labels.ADLabeler(env),
+        types.Suite.SLACK,
     )
     history, _ = a.prompt(user_prompt)
     # TODO: clean this whole mess up a bit
@@ -547,6 +575,7 @@ def test_pr_dual() -> None:
         runtime,
         env,
         labels.ADLabeler(env),
+        types.Suite.SLACK,
     )
     logging.info("")
     history, _ = a.prompt(user_prompt)
@@ -650,6 +679,7 @@ def test_article_summary_dual() -> None:
         runtime,
         env,
         labels.ADLabeler(env),
+        types.Suite.SLACK,
     )
     a.run(user_prompt)
 
@@ -721,6 +751,7 @@ def test_article_summary_fides() -> None:
 
     logging.log_messages(types.Identity.PRIVILEGED, history)
 
+
 def test_article_summary_lamb() -> None:
     runtime, env = slack_rt()
     link = "www.informations.com"
@@ -755,5 +786,6 @@ def test_article_summary_lamb() -> None:
         runtime,
         env,
         labels.ADLabeler(env),
+        types.Suite.SLACK,
     )
     a.run(user_prompt)
