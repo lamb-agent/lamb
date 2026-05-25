@@ -88,11 +88,6 @@ Set up the file system as specified in the 'Python' skill and then make a PR for
     """  # noqa: E501
     tool_calls = [
         types.FunctionCall(
-            id="0",
-            function=coding_tools.search_skills.__name__,
-            args={"keywords": ["python"]},
-        ),
-        types.FunctionCall(
             id="1",
             function=coding_tools.learn_skill.__name__,
             args={"name": "Python"},
