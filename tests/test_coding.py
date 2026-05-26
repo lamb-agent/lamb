@@ -32,7 +32,8 @@ def user_msg(msg: str, label: str) -> types.UserMessage:
 
 
 def tool_call_msg(
-    call: types.FunctionCall, label: str | None = None
+    call: types.FunctionCall,
+    label: str | None = None,
 ) -> types.AssistantMessage:
     return types.AssistantMessage(
         "",
