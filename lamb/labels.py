@@ -54,7 +54,7 @@ def check_domain(
     return (
         ifc.Confidentiality.HIGH
         if all(
-            candidate.endswith(domain) for candidate in candidates for domain in allowed
+            any(candidate.endswith(domain) for domain in allowed) for candidate in candidates
         )
         else ifc.Confidentiality.LOW
     )
